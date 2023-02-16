@@ -106,20 +106,20 @@ pipeline {
                         steps {
                             script {
                                 def sles_version_parts = "${sleVersion}".tokenize('.')
-                                def sles_major = "${def sles_version_parts[0]}"
-                                def sles_minor = "${def sles_version_parts[1]}"
+                                def sles_major = "${sles_version_parts[0]}"
+                                def sles_minor = "${sles_version_parts[1]}"
                                 publishCsmRpms(
                                         arch: "${arch}",
                                         component: env.NAME,
                                         isStable: isStable,
-                                        os: "sle-${def sles_major}sp${def sles_minor}",
+                                        os: "sle-${sles_major}sp${sles_minor}",
                                         pattern: "dist/rpmbuild/RPMS/${arch}/*.rpm",
                                 )
                                 publishCsmRpms(
                                         arch: "src",
                                         component: env.NAME,
                                         isStable: isStable,
-                                        os: "sle-${def sles_major}sp${def sles_minor}",
+                                        os: "sle-${sles_major}sp${sles_minor}",
                                         pattern: "dist/rpmbuild/SRPMS/*.rpm",
                                 )
                             }
