@@ -50,6 +50,7 @@ SPIFFE SPIRE Agent binary distribution.
 
 %install
 install -D -m 0755 bin/spire-agent %{buildroot}%{_bindir}/spire-agent
+install -D -m 0755 conf/configure-spire-sh %{buildroot}%{_bindir}/configure-spire.sh
 install -D -m 0644 conf/spire-agent.service %{buildroot}%{_unitdir}/spire-agent.service
 
 %clean
@@ -59,6 +60,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc README.adoc
 %{spire_bin_dir}/spire-agent
+%{spire_bin_dir}/configure-spire.sh
 %{_unitdir}/spire-agent.service
 
 %pre
