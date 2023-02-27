@@ -49,4 +49,4 @@ rpm_build_source:
 	rpmbuild --nodeps -ts $(SOURCE_PATH) --define "_topdir $(BUILD_DIR)"
 
 rpm_build:
-	rpmbuild --nodeps -ba $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"
+	rpmbuild --nodeps -bb --target ${arch} $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"
