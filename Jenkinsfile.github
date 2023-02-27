@@ -67,12 +67,11 @@ pipeline {
                     axis {
                         // TODO: Add aarch64 when CSM had aarch64 builders available in Jenkins. This may entail moving the agent{node:label} or something similar into the steps below.
                         name 'arch'
-                        values 'amd64'
+                        values 'x86_64'
                     }
                 }
 
                 stages {
-
                     stage('Prepare: RPMs') {
                         agent {
                             docker {
@@ -88,7 +87,7 @@ pipeline {
                             (cd artifacts/ && curl -OL ${SPIRE_ARTIFACTS})
                             (cd artifacts/ && tar -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz)
                             (cd artifacts/ && tar -tvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz)
-                            cp artifacts/${NAME}-${arch} bin/${NAME}
+                            cp artifacts/${NAME}-amd64 bin/${NAME}
                             rm -rf artifacts
                             make prepare
                             """
