@@ -56,13 +56,6 @@ pipeline {
 
             matrix {
 
-                agent {
-                    node {
-                        label "metal-gcp-builder"
-                        customWorkspace "${env.WORKSPACE}/${sleVersion}"
-                    }
-                }
-
                 axes {
                     axis {
                         name 'arch'
@@ -71,6 +64,12 @@ pipeline {
                 }
 
                 stages {
+                    agent {
+                        node {
+                            label env.arch == "aarch64" ? "metal-gcp-builder-arm64" : "metal-gcp-builder"
+                            customWorkspace "${env.WORKSPACE}/${sleVersion}"
+                        }
+                    }
                     stage('Prepare: RPMs') {
                         agent {
                             docker {
