@@ -84,6 +84,7 @@ pipeline {
                         steps {
                             runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
                             sh "curl -OL ${SPIRE_ARTIFACTS}"
+                            sh "find . -name '*.tgz';find . -name '*.tgz' -exec file '{} \;"
                             sh "tar -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz"
                             sh "mkdir bin; cp ${NAME}-${arch} bin/${NAME}"
                             sh "make prepare"
