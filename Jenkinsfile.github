@@ -86,7 +86,7 @@ pipeline {
                             sh """
                             mkdir -p artifacts bin
                             (cd artifacts/ && curl -OL ${SPIRE_ARTIFACTS})
-                            tar -C artifacts -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz spire-agent-${arch}
+                            tar -C artifacts -xvzf artifacts/${NAME}-v${spireVersion}-linux-multiarch.tgz spire-agent-${arch}
                             cp artifacts/${NAME}-${arch} bin/${NAME}
                             rm -rf artifacts
                             make prepare
