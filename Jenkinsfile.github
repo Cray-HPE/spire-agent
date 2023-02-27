@@ -63,13 +63,14 @@ pipeline {
                     }
                 }
 
-                stages {
-                    agent {
-                        node {
-                            label env.arch == "aarch64" ? "metal-gcp-builder-arm64" : "metal-gcp-builder"
-                            customWorkspace "${env.WORKSPACE}/${sleVersion}"
-                        }
+                agent {
+                    node {
+                        label env.arch == "aarch64" ? "metal-gcp-builder-arm64" : "metal-gcp-builder"
+                        customWorkspace "${env.WORKSPACE}/${sleVersion}"
                     }
+                }
+
+                stages {
                     stage('Prepare: RPMs') {
                         agent {
                             docker {
