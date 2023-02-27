@@ -24,7 +24,7 @@
 Name: %(echo $NAME)
 License: GPLv2
 Summary: spire-agent binary
-BuildArch: $(echo $ARCH)
+BuildArch: $(echo $arch)
 Version: %(echo $VERSION)
 Release: 1
 Source: %{name}-%{version}.tar.bz2
@@ -34,8 +34,8 @@ Vendor: Hewlett Packard Enterprise Company
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
 Requires(postun): /usr/sbin/userdel
 
-%define arch $(echo $ARCH)
-%define spire_binary bin/spire-agent-%{arch}
+%define arch %{arch}
+%define spire_binary bin/spire-agent
 
 %define spire_agent_dir /var/lib/spire
 %define spire_bin_dir /usr/bin/
