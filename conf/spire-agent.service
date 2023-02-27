@@ -1,0 +1,19 @@
+[Unit]
+Description=SPIRE Agent
+After=network.target
+
+StartLimitIntervalSec=5
+StartLimitBurst=10
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/var/lib/spire/conf/join_token
+ExecStartPre=/usr/bin/configure-spire.sh
+ExecStart=/usr/bin/spire-agent run -expandEnv -config /var/lib/spire/conf/spire-agent.conf
+StandardOutput=journal
+ExecStartPost=+ln -sf /var/lib/spire/agent.sock /root/spire/agent.sock
+Restart=always
+RestartSec=10s
