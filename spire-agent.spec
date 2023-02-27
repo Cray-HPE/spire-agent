@@ -24,7 +24,7 @@
 Name: %(echo $NAME)
 License: GPLv2
 Summary: spire-agent binary
-BuildArch: $(echo $ARCH)
+BuildArch: x86_64
 Version: %(echo $VERSION)
 Release: 1
 Source: %{name}-%{version}.tar.bz2

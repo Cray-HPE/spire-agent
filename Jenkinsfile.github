@@ -90,7 +90,6 @@ pipeline {
                             (cd artifacts/ && tar -tvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz)
                             cp artifacts/${NAME}-${arch} bin/${NAME}
                             rm -rf artifacts
-                            cat spire-agent.spec
                             make prepare
                             """
                         }
