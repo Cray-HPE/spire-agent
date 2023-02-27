@@ -84,7 +84,7 @@ pipeline {
                             docker {
                                 label 'docker'
                                 reuseNode true
-                                image "${sleImage}:${GO_VERSION}"
+                                image "${sleImage}:${env.GO_VERSION}"
                             }
                         }
                         steps {
@@ -102,7 +102,7 @@ pipeline {
                             docker {
                                 label 'docker'
                                 reuseNode true
-                                image "${sleImage}:${GO_VERSION}"
+                                image "${sleImage}:${env.GO_VERSION}"
                             }
                         }
                         steps {
