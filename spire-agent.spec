@@ -23,8 +23,7 @@
 #
 Name: %(echo $NAME)
 License: GPLv2
-Summary: iPXE for booting bare metal in HPCaaS environments
-BuildArch: $(echo $ARCH)
+Summary: spire-agent binary
 Version: %(echo $VERSION)
 Release: 1
 Source: %{name}-%{version}.tar.bz2
@@ -34,10 +33,11 @@ Vendor: Hewlett Packard Enterprise Company
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
 Requires(postun): /usr/sbin/userdel
 
-%define vendor vendor/github.com/Cray-HPE/spire/
+%define arch %{arch}
+%define spire_binary bin/spire-agent
 
 %define spire_agent_dir /var/lib/spire
-%define spire_bin_dir /opt/cray/cray-spire
+%define spire_bin_dir /usr/bin/
 
 %description
 SPIFFE SPIRE Agent binary distribution.
@@ -46,18 +46,54 @@ SPIFFE SPIRE Agent binary distribution.
 %setup -q
 
 %build
-cd %{vendor}
-make build
 
 %install
+mkdir -p %{buildroot}%{spire_agent_dir}/{data,conf,bundle}
+install -D -m 0755 bin/spire-agent %{buildroot}%{_bindir}/spire-agent
+install -D -m 0755 conf/configure-spire.sh %{buildroot}%{_bindir}/configure-spire.sh
+install -D -m 0644 conf/spire-agent.service %{buildroot}%{_unitdir}/spire-agent.service
 
 %clean
+rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%license LICENSE
 %doc README.adoc
-%config(noreplace) %{wwwbootdir}%{bootscript}
-%attr(-,dnsmasq,tftp) %{wwwbootdir}%(basename %{binx86_64})
+%attr(755,root,root) %{spire_bin_dir}/spire-agent
+%attr(755,root,root) %{spire_bin_dir}/configure-spire.sh
+%attr(644,root,root) %{_unitdir}/spire-agent.service
+%attr(700,spire,spire) %dir %{spire_agent_dir}/data
+%attr(700,spire,spire) %dir %{spire_agent_dir}/conf
+%attr(700,spire,spire) %dir %{spire_agent_dir}/bundle
+
+%pre
+%if 0%{?suse_version}
+%service_add_pre spire-agent.service
+%endif
+getent group spire >/dev/null || groupadd -r spire
+getent passwd spire >/dev/null || \
+    useradd -r -g spire -d /var/lib/spire -s /sbin/nologin \
+    -c "spire-agent service account" spire
+
+%post
+%if 0%{?suse_version}
+%service_add_post spire-agent.service
+%else
+%systemd_post spire-agent.service
+%endif
+
+%preun
+%if 0%{?suse_version}
+%service_del_preun spire-agent.service
+%else
+%systemd_preun spire-agent.service
+%endif
+
+%postun
+%if 0%{?suse_version}
+%service_del_postun spire-agent.service
+%else
+%systemd_postun_with_restart spire-agent.service
+%endif
 
 %changelog

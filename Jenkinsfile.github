@@ -26,7 +26,11 @@
 @Library('csm-shared-library') _
 
 def isStable = env.TAG_NAME != null ? true : false
-def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle-go'
+def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle'
+def spireArtifactURL = 'https://github.com/Cray-HPE/spire/releases/download'
+def spireVersion = '1.5.5'
+def sleVersion = '15.4'
+
 pipeline {
 
     agent {
@@ -42,8 +46,8 @@ pipeline {
 
     environment {
         NAME = getRepoName()
-        GO_VERSION = sh(returnStdout: true, script: "grep -Eo'^go .*' ${vendor}/go.mod | cut -d ' ' -f2").trim()
         VERSION = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | tr -d '^v'").trim()
+        SPIRE_ARTIFACTS = "${spireArtifactURL}/v${spireVersion}/spire-agent-v${spireVersion}-linux-multiarch.tgz"
     }
 
     stages {
@@ -52,6 +56,13 @@ pipeline {
 
             matrix {
 
+                axes {
+                    axis {
+                        name 'arch'
+                        values 'x86_64', 'aarch64'
+                    }
+                }
+
                 agent {
                     node {
                         label "metal-gcp-builder"
@@ -59,21 +70,7 @@ pipeline {
                     }
                 }
 
-                axes {
-                    axis {
-                        name 'sleVersion'
-                        values '15.3', '15.4'
-                    }
-
-                    axis {
-                        // TODO: Add aarch64 when CSM had aarch64 builders available in Jenkins. This may entail moving the agent{node:label} or something similar into the steps below.
-                        name 'arch'
-                        values 'x86_64'
-                    }
-                }
-
                 stages {
-
                     stage('Prepare: RPMs') {
                         agent {
                             docker {
@@ -84,8 +81,15 @@ pipeline {
                         }
                         steps {
                             runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
-                            sh "make prepare"
-                            sh "git update-index --assume-unchanged ${env.NAME}.spec"
+                            sh """
+                            git update-index --assume-unchanged ${env.NAME}.spec
+                            mkdir -p artifacts bin
+                            (cd artifacts/ && curl -OL ${SPIRE_ARTIFACTS})
+                            (cd artifacts/ && tar -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz)
+                            cp artifacts/${NAME}-${arch} bin/${NAME}
+                            rm -rf artifacts
+                            make prepare
+                            """
                         }
                     }
 
