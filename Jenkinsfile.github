@@ -85,10 +85,10 @@ pipeline {
                             runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
                             sh """
                             mkdir -p artifacts bin
-                            cd artifacts/
-                            curl -OL ${SPIRE_ARTIFACTS}
-                            tar -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz
-                            cp ${NAME}-${arch} ../bin/${NAME}
+                            (cd artifacts/ && curl -OL ${SPIRE_ARTIFACTS})
+                            tar -C artifacts -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz spire-agent-${arch}
+                            cp artifacts/${NAME}-${arch} bin/${NAME}
+                            rm -rf artifacts
                             make prepare
                             """                        }
                     }
