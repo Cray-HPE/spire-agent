@@ -46,7 +46,7 @@ rpm_package_source:
 	tar --transform 'flags=r;s,^,/${NAME}-${VERSION}/,' --exclude .git --exclude dist -cvjf $(SOURCE_PATH) .
 
 rpm_build_source:
-	rpmbuild --target aarch64 --nodeps -ts $(SOURCE_PATH) --define "_topdir $(BUILD_DIR)"
+	rpmbuild --target ${arch} --nodeps -ts $(SOURCE_PATH) --define "_topdir $(BUILD_DIR)"
 
 rpm_build:
-	rpmbuild --target aarch64 --nodeps -bb $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"
+	rpmbuild --target ${arch} --nodeps -bb $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"
