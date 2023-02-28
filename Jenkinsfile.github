@@ -59,14 +59,14 @@ pipeline {
                 axes {
                     axis {
                         name 'arch'
-                        // values 'x86_64', 'aarch64'
-                        values 'x86_64'
+                        values 'x86_64', 'aarch64'
+                        //values 'x86_64'
                     }
                 }
 
                 agent {
                     node {
-                        label env.arch == "aarch64" ? "metal-gcp-builder-arm64" : "metal-gcp-builder"
+                        label "metal-gcp-builder"
                         customWorkspace "${env.WORKSPACE}/${sleVersion}"
                     }
                 }
