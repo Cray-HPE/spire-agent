@@ -27,9 +27,10 @@
 
 def isStable = env.TAG_NAME != null ? true : false
 def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle'
-def spireArtifactURL = 'https://github.com/Cray-HPE/spire/releases/download'
-def spireVersion = '1.5.5'
 def sleVersion = '15.4'
+
+def spireURL = 'https://api.github.com/repos/Cray-HPE/spire'
+def spireVersion = 'v1.5.5'
 
 pipeline {
 
@@ -46,8 +47,10 @@ pipeline {
 
     environment {
         NAME = getRepoName()
-        VERSION = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | tr -d '^v'").trim()
-        SPIRE_ARTIFACTS = "${spireArtifactURL}/v${spireVersion}/spire-agent-v${spireVersion}-linux-multiarch.tgz"
+        GITHUB_TOKEN = getGitHubToken()
+        SPIRE_URL = "${spireURL}"
+        SPIRE_VERSION = "${spireVersion}"
+        VERSION = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | sed 's/^v//'").trim()
     }
 
     stages {
@@ -58,7 +61,7 @@ pipeline {
 
                 axes {
                     axis {
-                        name 'arch'
+                        name 'ARCH'
                         values 'x86_64', 'aarch64'
                     }
                 }
@@ -66,7 +69,7 @@ pipeline {
                 agent {
                     node {
                         label "metal-gcp-builder"
-                        customWorkspace "${env.WORKSPACE}/${sleVersion}"
+                        customWorkspace "${env.WORKSPACE}/${ARCH}"
                     }
                 }
 
@@ -80,16 +83,9 @@ pipeline {
                             }
                         }
                         steps {
-                            runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
-                            sh """
-                            git update-index --assume-unchanged ${env.NAME}.spec
-                            mkdir -p artifacts bin
-                            (cd artifacts/ && curl -OL ${SPIRE_ARTIFACTS})
-                            (cd artifacts/ && tar -xvzf ${NAME}-v${spireVersion}-linux-multiarch.tgz)
-                            cp artifacts/${NAME}-${arch} bin/${NAME}
-                            rm -rf artifacts
-                            make prepare
-                            """
+                                runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
+                                sh "git update-index --assume-unchanged ${env.NAME}.spec"
+                                sh "make prepare"
                         }
                     }
 
@@ -113,7 +109,7 @@ pipeline {
                                 def sles_major = "${sles_version_parts[0]}"
                                 def sles_minor = "${sles_version_parts[1]}"
                                 publishCsmRpms(
-                                        arch: "${arch}",
+                                        arch: "${ARCH}",
                                         component: env.NAME,
                                         isStable: isStable,
                                         os: "sle-${sles_major}sp${sles_minor}",
