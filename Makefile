@@ -21,32 +21,52 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
-NAME ?= ${GIT_REPO_NAME}
 
-ifeq ($(VERSION),)
-VERSION := $(shell git describe --tags | tr -s '-' '~' | tr -d '^v')
+ifeq ($(ARCH),)
+export ARCH ?= x86_64
 endif
 
-# FIXME: When does this switch to release or when it is omitted?
-BUILD_METADATA ?= 1~development~$(shell git rev-parse --short HEAD)
+ifeq ($(NAME),)
+export NAME := $(shell basename $(shell pwd))
+endif
+
+ifeq ($(SPIRE_URL),)
+export SPIRE_URL := $(shell awk -v replace="'" '/spireURL/{gsub(replace,"", $$NF); print $$NF; exit}' Jenkinsfile.github)
+endif
+
+ifeq ($(SPIRE_VERSION),)
+export SPIRE_VERSION := $(shell awk -v replace="'" '/spireVersion/{gsub(replace,"", $$NF); print $$NF; exit}' Jenkinsfile.github)
+endif
+
+ifeq ($(VERSION),)
+VERSION := $(shell git describe --tags | tr -s '-' '~' | sed 's/^v//')
+endif
 
 SPEC_FILE ?= ${NAME}.spec
 SOURCE_NAME ?= ${NAME}
 BUILD_DIR ?= $(PWD)/dist/rpmbuild
-SOURCE_PATH := ${BUILD_DIR}/SOURCES/${SOURCE_NAME}-${VERSION}.tar.bz2
+SOURCE_PATH := ${BUILD_DIR}/SOURCES/${SOURCE_NAME}-$(shell echo $(SPIRE_VERSION) | sed 's/^v//').tar.bz2
 
+.PHONY: rpm
 rpm: prepare rpm_package_source rpm_build_source rpm_build
 
-prepare:
+bin:
+	./get-artifact.sh
+
+.PHONY: prepare
+prepare: bin
 	rm -rf $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/SPECS $(BUILD_DIR)/SOURCES
 	cp $(SPEC_FILE) $(BUILD_DIR)/SPECS/
 
+.PHONY: rpm_package_source
 rpm_package_source:
-	tar --transform 'flags=r;s,^,/${NAME}-${VERSION}/,' --exclude .git --exclude dist -cvjf $(SOURCE_PATH) .
+	tar --transform 'flags=r;s,^,/${NAME}-$(shell echo $(SPIRE_VERSION) | sed 's/^v//')/,' --exclude .git --exclude dist -cvjf $(SOURCE_PATH) .
 
+.PHONY: rpm_build_source
 rpm_build_source:
-	rpmbuild --target ${arch} --nodeps -ts $(SOURCE_PATH) --define "_topdir $(BUILD_DIR)"
+	rpmbuild --nodeps --target ${ARCH} -ts $(SOURCE_PATH) --define "_topdir $(BUILD_DIR)"
 
+.PHONY: rpm_build
 rpm_build:
-	rpmbuild --target ${arch} --nodeps -bb $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"
+	rpmbuild --nodeps --target ${ARCH} -ba $(SPEC_FILE) --define "_topdir $(BUILD_DIR)"

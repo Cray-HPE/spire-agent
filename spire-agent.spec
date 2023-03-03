@@ -24,8 +24,8 @@
 Name: %(echo $NAME)
 License: GPLv2
 Summary: spire-agent binary
-Version: %(echo $VERSION)
-Release: 1
+Version: %(echo $SPIRE_VERSION | sed 's/^v//')
+Release: %(echo $VERSION)
 Source: %{name}-%{version}.tar.bz2
 Group: Applications/System
 Vendor: Hewlett Packard Enterprise Company

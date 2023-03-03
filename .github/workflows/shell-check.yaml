@@ -21,22 +21,25 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
-[Unit]
-Description=SPIRE Agent
-After=network.target
+name: Check Shell Scripts
+on:
+  pull_request:
 
-StartLimitIntervalSec=5
-StartLimitBurst=10
+jobs:
+  shell-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
 
-[Install]
-WantedBy=multi-user.target
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v18.7
+      with:
+        files: "**/*.sh"
+        files_ignore: ".github/**/*"
 
-[Service]
-Type=simple
-EnvironmentFile=-/var/lib/spire/conf/join_token
-ExecStartPre=/usr/bin/configure-spire.sh
-ExecStart=/usr/bin/spire-agent run -expandEnv -config /var/lib/spire/conf/spire-agent.conf
-StandardOutput=journal
-ExecStartPost=+bash -c 'mkdir /root/spire && ln -sf /var/lib/spire/agent.sock /root/spire/agent.sock'
-Restart=always
-RestartSec=10s
+    - uses: docker://koalaman/shellcheck:stable
+      if: ${{ steps.changed-files.outputs.all_changed_files }}
+      id: shell-check
+      with:
+        args: --color=always ${{ steps.changed-files.outputs.all_changed_files }}

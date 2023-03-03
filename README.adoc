@@ -1,0 +1,40 @@
+= SPIRE
+
+https://github.com/Cray-HPE/spire[SPIRE] (the https://github.com/spiffe/spiffe[SPIFFE]
+Runtime Environment) is a tool-chain for establishing trust between software systems
+across a wide variety of hosting platforms.
+
+The configuration files included in this release are intended for evaluation
+purposes only and are **NOT** production ready.
+
+One can find additional example configurations for SPIRE https://github.com/spiffe/spire-examples[here].
+
+This repository builds the published releases from https://github.com/Cray-HPE/spire[SPIRE] into OS
+distributable packages.
+
+== Configuration
+
+The spire configuration files are installed under `/var/lib/spire`.
+
+When writing the configuration file, the join token should be
+specified as:
+
+[source,text]
+----
+agent {
+  join_token = "$join_token"
+}
+----
+
+The spire startup script will read the token from the
+environment variable `join_token`. This environment
+variable is set by systemd reading
+`/root/spire/conf/join_token` before calling `spire-client`.
+
+The format of the join_token file is:
+
+[source,text]
+----
+join_token=<token from spire-server>
+----
+
