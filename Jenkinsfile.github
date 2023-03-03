@@ -30,7 +30,7 @@ def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle'
 def sleVersion = '15.4'
 
 def spireURL = 'https://api.github.com/repos/Cray-HPE/spire'
-def spireVersion = 'v1.5.5'
+def spireVersion = 'v1.6.1'
 
 pipeline {
 

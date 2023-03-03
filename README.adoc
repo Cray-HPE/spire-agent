@@ -7,7 +7,7 @@ across a wide variety of hosting platforms.
 The configuration files included in this release are intended for evaluation
 purposes only and are **NOT** production ready.
 
-One can find additional example configurations for SPIRE https://github.com/spiffe/spire-examples[here].
+One can find additional example configurations for SPIRE https://github.com/Cray-HPE/spire-examples[here].
 
 This repository builds the published releases from https://github.com/Cray-HPE/spire[SPIRE] into OS
 distributable packages.
