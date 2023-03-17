@@ -2,7 +2,6 @@ package fakedatastore
 
 import (
 	"context"
-	"crypto"
 	"fmt"
 	"sort"
 	"sync/atomic"
@@ -160,34 +159,6 @@ func (s *DataStore) DeleteAttestedNode(ctx context.Context, spiffeID string) (*c
 		return nil, err
 	}
 	return s.ds.DeleteAttestedNode(ctx, spiffeID)
-}
-
-func (s *DataStore) TaintX509CA(ctx context.Context, trustDomainID string, publicKey crypto.PublicKey) error {
-	if err := s.getNextError(); err != nil {
-		return err
-	}
-	return s.ds.TaintX509CA(ctx, trustDomainID, publicKey)
-}
-
-func (s *DataStore) RevokeX509CA(ctx context.Context, trustDomainID string, publicKey crypto.PublicKey) error {
-	if err := s.getNextError(); err != nil {
-		return err
-	}
-	return s.ds.RevokeX509CA(ctx, trustDomainID, publicKey)
-}
-
-func (s *DataStore) TaintJWTKey(ctx context.Context, trustDomainID string, keyID string) (*common.PublicKey, error) {
-	if err := s.getNextError(); err != nil {
-		return nil, err
-	}
-	return s.ds.TaintJWTKey(ctx, trustDomainID, keyID)
-}
-
-func (s *DataStore) RevokeJWTKey(ctx context.Context, trustDomainID string, keyID string) (*common.PublicKey, error) {
-	if err := s.getNextError(); err != nil {
-		return nil, err
-	}
-	return s.ds.RevokeJWTKey(ctx, trustDomainID, keyID)
 }
 
 func (s *DataStore) SetNodeSelectors(ctx context.Context, spiffeID string, selectors []*common.Selector) error {

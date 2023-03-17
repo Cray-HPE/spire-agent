@@ -23,7 +23,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundle_client "github.com/spiffe/spire/pkg/server/bundle/client"
 	"github.com/spiffe/spire/pkg/server/ca"
-	"github.com/spiffe/spire/pkg/server/ca/manager"
 	"github.com/spiffe/spire/pkg/server/cache/dscache"
 	"github.com/spiffe/spire/pkg/server/catalog"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
@@ -54,8 +53,8 @@ type Config struct {
 	// Bundle endpoint configuration
 	BundleEndpoint bundle.EndpointConfig
 
-	// JWTKey publisher
-	JWTKeyPublisher manager.JwtKeyPublisher
+	// CA Manager
+	Manager *ca.Manager
 
 	// Makes policy decisions
 	AuthPolicyEngine *authpolicy.Engine
@@ -118,7 +117,7 @@ func (c *Config) maybeMakeBundleEndpointServer() Server {
 
 func (c *Config) makeAPIServers(entryFetcher api.AuthorizedEntryFetcher) APIServers {
 	ds := c.Catalog.GetDataStore()
-	upstreamPublisher := UpstreamPublisher(c.JWTKeyPublisher)
+	upstreamPublisher := UpstreamPublisher(c.Manager)
 
 	return APIServers{
 		AgentServer: agentv1.New(agentv1.Config{

@@ -24,8 +24,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundle_client "github.com/spiffe/spire/pkg/server/bundle/client"
 	"github.com/spiffe/spire/pkg/server/ca"
-	"github.com/spiffe/spire/pkg/server/ca/manager"
-	"github.com/spiffe/spire/pkg/server/ca/rotator"
 	"github.com/spiffe/spire/pkg/server/catalog"
 	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/credvalidator"
@@ -134,13 +132,7 @@ func (s *Server) run(ctx context.Context) (err error) {
 
 	// CA manager needs to be initialized before the rotator, otherwise the
 	// server CA plugin won't be able to sign CSRs
-	caManager, err := s.newCAManager(ctx, cat, metrics, serverCA, credBuilder, credValidator)
-	if err != nil {
-		return err
-	}
-	defer caManager.Close()
-
-	caSync, err := s.newCASync(ctx, healthChecker, caManager)
+	caManager, err := s.newCAManager(ctx, cat, metrics, serverCA, credBuilder, credValidator, healthChecker)
 	if err != nil {
 		return err
 	}
@@ -191,7 +183,7 @@ func (s *Server) run(ctx context.Context) (err error) {
 	}
 
 	tasks := []func(context.Context) error{
-		caSync.Run,
+		caManager.Run,
 		svidRotator.Run,
 		endpointsServer.ListenAndServe,
 		metrics.ListenAndServe,
@@ -312,8 +304,8 @@ func (s *Server) newCA(metrics telemetry.Metrics, credBuilder *credtemplate.Buil
 	})
 }
 
-func (s *Server) newCAManager(ctx context.Context, cat catalog.Catalog, metrics telemetry.Metrics, serverCA *ca.CA, credBuilder *credtemplate.Builder, credValidator *credvalidator.Validator) (*manager.Manager, error) {
-	caManager, err := manager.NewManager(ctx, manager.Config{
+func (s *Server) newCAManager(ctx context.Context, cat catalog.Catalog, metrics telemetry.Metrics, serverCA *ca.CA, credBuilder *credtemplate.Builder, credValidator *credvalidator.Validator, healthChecker health.Checker) (*ca.Manager, error) {
+	caManager := ca.NewManager(ca.ManagerConfig{
 		CA:            serverCA,
 		Catalog:       cat,
 		TrustDomain:   s.config.TrustDomain,
@@ -324,25 +316,12 @@ func (s *Server) newCAManager(ctx context.Context, cat catalog.Catalog, metrics 
 		Dir:           s.config.DataDir,
 		X509CAKeyType: s.config.CAKeyType,
 		JWTKeyType:    s.config.JWTKeyType,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return caManager, nil
-}
-
-func (s *Server) newCASync(ctx context.Context, healthChecker health.Checker, caManager *manager.Manager) (*rotator.Rotator, error) {
-	caSync := rotator.NewRotator(rotator.Config{
-		Log:           s.config.Log.WithField(telemetry.SubsystemName, telemetry.CAManager),
-		Manager:       caManager,
 		HealthChecker: healthChecker,
 	})
-	if err := caSync.Initialize(ctx); err != nil {
+	if err := caManager.Initialize(ctx); err != nil {
 		return nil, err
 	}
-
-	return caSync, nil
+	return caManager, nil
 }
 
 func (s *Server) newRegistrationManager(cat catalog.Catalog, metrics telemetry.Metrics) *registration.Manager {
@@ -367,7 +346,7 @@ func (s *Server) newSVIDRotator(ctx context.Context, serverCA ca.ServerCA, metri
 	return svidRotator, nil
 }
 
-func (s *Server) newEndpointsServer(ctx context.Context, catalog catalog.Catalog, svidObserver svid.Observer, serverCA ca.ServerCA, metrics telemetry.Metrics, jwtKeyPublisher manager.JwtKeyPublisher, authPolicyEngine *authpolicy.Engine, bundleManager *bundle_client.Manager) (endpoints.Server, error) {
+func (s *Server) newEndpointsServer(ctx context.Context, catalog catalog.Catalog, svidObserver svid.Observer, serverCA ca.ServerCA, metrics telemetry.Metrics, caManager *ca.Manager, authPolicyEngine *authpolicy.Engine, bundleManager *bundle_client.Manager) (endpoints.Server, error) {
 	config := endpoints.Config{
 		TCPAddr:             s.config.BindAddress,
 		LocalAddr:           s.config.BindLocalAddress,
@@ -377,7 +356,7 @@ func (s *Server) newEndpointsServer(ctx context.Context, catalog catalog.Catalog
 		ServerCA:            serverCA,
 		Log:                 s.config.Log.WithField(telemetry.SubsystemName, telemetry.Endpoints),
 		Metrics:             metrics,
-		JWTKeyPublisher:     jwtKeyPublisher,
+		Manager:             caManager,
 		RateLimit:           s.config.RateLimit,
 		Uptime:              uptime.Uptime,
 		Clock:               clock.New(),

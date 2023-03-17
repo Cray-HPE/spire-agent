@@ -400,8 +400,6 @@ func TestSubcriberNotifiedWhenEntryDropped(t *testing.T) {
 	assertAnyWorkloadUpdate(t, subB)
 
 	foo := makeRegistrationEntry("FOO", "A")
-	bar := makeRegistrationEntry("BAR", "B")
-
 	updateEntries := &UpdateEntries{
 		Bundles:             makeBundles(bundleV1),
 		RegistrationEntries: makeRegistrationEntries(foo),
@@ -410,7 +408,6 @@ func TestSubcriberNotifiedWhenEntryDropped(t *testing.T) {
 	cache.UpdateSVIDs(&UpdateSVIDs{
 		X509SVIDs: makeX509SVIDs(foo),
 	})
-
 	// make sure subA gets notified with FOO but not subB
 	assertWorkloadUpdateEqual(t, subA, &WorkloadUpdate{
 		Bundle:     bundleV1,
@@ -418,27 +415,12 @@ func TestSubcriberNotifiedWhenEntryDropped(t *testing.T) {
 	})
 	assertNoWorkloadUpdate(t, subB)
 
-	// Swap out FOO for BAR
-	updateEntries.RegistrationEntries = makeRegistrationEntries(bar)
+	updateEntries.RegistrationEntries = nil
 	cache.UpdateEntries(updateEntries, nil)
-	cache.UpdateSVIDs(&UpdateSVIDs{
-		X509SVIDs: makeX509SVIDs(bar),
-	})
 	assertWorkloadUpdateEqual(t, subA, &WorkloadUpdate{
 		Bundle: bundleV1,
 	})
-	assertWorkloadUpdateEqual(t, subB, &WorkloadUpdate{
-		Bundle:     bundleV1,
-		Identities: []Identity{{Entry: bar}},
-	})
-
-	// Drop both
-	updateEntries.RegistrationEntries = nil
-	cache.UpdateEntries(updateEntries, nil)
-	assertNoWorkloadUpdate(t, subA)
-	assertWorkloadUpdateEqual(t, subB, &WorkloadUpdate{
-		Bundle: bundleV1,
-	})
+	assertNoWorkloadUpdate(t, subB)
 
 	// Make sure trying to update SVIDs of removed entry does not notify
 	cache.UpdateSVIDs(&UpdateSVIDs{

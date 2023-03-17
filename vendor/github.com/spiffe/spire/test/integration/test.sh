@@ -14,14 +14,11 @@ if [[ -n $1 ]]; then
         SUITES=$@
 fi
 
-ignore_suites=(${IGNORE_SUITES})
 echo "Testing $SUITES"
 
 failed=()
 for suite in $SUITES; do
-    if [[ " ${ignore_suites[*]} " =~ " ${suite} " ]]; then
-        log-warn "Ignoring ${suite} suite..."
-    elif ! ./test-one.sh "${suite}"; then
+    if ! ./test-one.sh "${suite}"; then
         echo "STATUS=$?"
         failed+=( "$(basename "${suite}")" )
     fi

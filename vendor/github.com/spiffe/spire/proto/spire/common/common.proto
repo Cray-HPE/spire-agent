@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 package spire.common;
 option go_package = "github.com/spiffe/spire/proto/spire/common";
@@ -91,11 +90,6 @@ message RegistrationEntry {
     bool store_svid = 12;
     /** Time to live for JWT-SVIDs generated from this entry, if set will override ttl field. */
     int32 jwt_svid_ttl = 13;
-    /** An operator-specified string used to provide guidance on how this
-    identity should be used by a workload when more than one SVID is returned. */
-    string hint = 14;
-    /** Time of creation, in seconds from epoch */
-    int64 created_at = 15;
 }
 
 /** The RegistrationEntryMask is used to update only selected fields of the RegistrationEntry */
@@ -112,7 +106,6 @@ message RegistrationEntryMask {
     bool dns_names = 10;
     bool store_svid = 11;
     bool jwt_svid_ttl = 12;
-    bool hint = 13;
 }
 
 
@@ -125,9 +118,6 @@ message RegistrationEntries {
 /** Certificate represents a ASN.1/DER encoded X509 certificate */
 message Certificate {
     bytes der_bytes = 1;
-
-    /** Whether or not the key used to sign the certificate is tainted */
-    bool tainted_key = 2;
 }
 
 /** PublicKey represents a PKIX encoded public key */
@@ -140,9 +130,6 @@ message PublicKey {
 
     /** not after (seconds since unix epoch, 0 means "never expires") */
     int64 not_after = 3;
-
-    /** Whether or not the key is tainted */
-    bool tainted_key = 4;
 }
 
 message Bundle {

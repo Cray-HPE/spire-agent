@@ -1,4 +1,4 @@
-package rotator
+package ca
 
 import (
 	"errors"
@@ -9,11 +9,11 @@ import (
 // TODO: What would be a good threshold number?
 const failedRotationThreshold = 10
 
-type caSyncHealth struct {
-	m *Rotator
+type managerHealth struct {
+	m *Manager
 }
 
-func (h *caSyncHealth) CheckHealth() health.State {
+func (h *managerHealth) CheckHealth() health.State {
 	// Readiness and liveness will be checked by manager's ability to
 	// rotate for a certain threshold.
 	live := true
@@ -39,11 +39,4 @@ func (h *caSyncHealth) CheckHealth() health.State {
 
 type managerHealthDetails struct {
 	RotationErr string `json:"rotation_err,omitempty"`
-}
-
-func errString(err error) string {
-	if err != nil {
-		return err.Error()
-	}
-	return ""
 }

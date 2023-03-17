@@ -1,4 +1,4 @@
-package manager
+package ca
 
 import (
 	"crypto/x509"
@@ -8,21 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spiffe/spire/pkg/common/pemutil"
-	"github.com/spiffe/spire/pkg/server/ca"
 	"github.com/spiffe/spire/test/spiretest"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
-	testSigner, _ = pemutil.ParseSigner([]byte(`-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgt/OIyb8Ossz/5bNk
-XtnzFe1T2d0D9quX9Loi1O55b8yhRANCAATDe/2d6z+P095I3dIkocKr4b3zAy+1
-qQDuoXqa8i3YOPk5fLib4ORzqD9NJFcrKjI+LLtipQe9yu/eY1K0yhBa
------END PRIVATE KEY-----
-`))
-
 	testChain = []*x509.Certificate{
 		{Raw: []byte("A")},
 		{Raw: []byte("B")},
@@ -133,14 +124,14 @@ func (s *JournalSuite) TestPersistence() {
 
 	journal := s.loadJournal()
 
-	err := journal.AppendX509CA("A", now, &ca.X509CA{
+	err := journal.AppendX509CA("A", now, &X509CA{
 		Signer:        testSigner,
 		Certificate:   testChain[0],
 		UpstreamChain: testChain,
 	})
 	s.Require().NoError(err)
 
-	err = journal.AppendJWTKey("B", now, &ca.JWTKey{
+	err = journal.AppendJWTKey("B", now, &JWTKey{
 		Signer:   testSigner,
 		Kid:      "KID",
 		NotAfter: now.Add(time.Hour),
@@ -157,7 +148,7 @@ func (s *JournalSuite) TestX509CAOverflow() {
 
 	for i := 0; i < (journalCap + 1); i++ {
 		now = now.Add(time.Minute)
-		err := journal.AppendX509CA("A", now, &ca.X509CA{
+		err := journal.AppendX509CA("A", now, &X509CA{
 			Signer:      testSigner,
 			Certificate: testChain[0],
 		})
@@ -177,7 +168,7 @@ func (s *JournalSuite) TestJWTKeyOverflow() {
 
 	for i := 0; i < (journalCap + 1); i++ {
 		now = now.Add(time.Minute)
-		err := journal.AppendJWTKey("B", now, &ca.JWTKey{
+		err := journal.AppendJWTKey("B", now, &JWTKey{
 			Signer:   testSigner,
 			Kid:      "KID",
 			NotAfter: now.Add(time.Hour),
