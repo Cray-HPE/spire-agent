@@ -1,15 +1,16 @@
 = SPIRE
+:toc:
 
-https://github.com/Cray-HPE/spire[SPIRE] (the https://github.com/spiffe/spiffe[SPIFFE]
+https://github.com/spiffe/spire[SPIRE](the https://github.com/spiffe/spiffe[SPIFFE]
 Runtime Environment) is a tool-chain for establishing trust between software systems
 across a wide variety of hosting platforms.
 
 The configuration files included in this release are intended for evaluation
 purposes only and are **NOT** production ready.
 
-One can find additional example configurations for SPIRE https://github.com/Cray-HPE/spire-examples[here].
+One can find additional example configurations for SPIRE https://github.com/spiffe/spire-examples[here].
 
-This repository builds the published releases from https://github.com/Cray-HPE/spire[SPIRE] into OS
+This repository builds the published releases from https://github.com/spiffe/spire[SPIRE] into OS
 distributable packages.
 
 == Configuration
@@ -38,3 +39,31 @@ The format of the join_token file is:
 join_token=<token from spire-server>
 ----
 
+== Updating Spire
+
+This repository uses git-vendoring for managing spire.
+
+[source,bash]
+----
+git vendor list
+----
+[source,bash]
+----
+spire@v1.6.1:
+	name:	spire
+	dir:	vendor/github.com/spiffe/spire
+	repo:	git@github.com:spiffe/spire.git
+	ref:	v1.6.1
+	commit:	89dd75c44da94cf6d319e2ca563172a68d0737f2
+----
+
+Updating spire can be done by updating the vendor directory *against a git-tag*. Do not update
+vendoring against a branch, choose a stable release of spire in the form of a git-tag.
+
+[source,bash]
+----
+git vendor update spire v1.6.1
+----
+
+The RPM version keys off of the `ref` in `git vendor list`, the `ref` will only show a git-tag when vendoring is
+updated against a git-tag.

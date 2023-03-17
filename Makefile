@@ -30,16 +30,25 @@ ifeq ($(NAME),)
 export NAME := $(shell basename $(shell pwd))
 endif
 
-ifeq ($(SPIRE_URL),)
-export SPIRE_URL := $(shell awk -v replace="'" '/spireURL/{gsub(replace,"", $$NF); print $$NF; exit}' Jenkinsfile.github)
-endif
-
 ifeq ($(SPIRE_VERSION),)
-export SPIRE_VERSION := $(shell awk -v replace="'" '/spireVersion/{gsub(replace,"", $$NF); print $$NF; exit}' Jenkinsfile.github)
+export SPIRE_VERSION := $(shell git vendor list spire | grep ref | awk '{print $$NF}')
 endif
 
-ifeq ($(VERSION),)
-VERSION := $(shell git describe --tags | tr -s '-' '~' | sed 's/^v//')
+ifeq ($(BUILD),)
+BUILD := $(shell git describe --tags | tr -s '-' '~' | sed 's/^v//')
+endif
+
+# By default, if these are not set then set them to match the host.
+ifeq ($(GOOS),)
+OS := $(shell uname)
+export GOOS := $(call lc,$(OS))
+endif
+ifeq ($(GOARCH),)
+	ifeq "$(ARCH)" "aarch64"
+		export GOARCH=arm64
+	else ifeq "$(ARCH)" "x86_64"
+		export GOARCH=amd64
+	endif
 endif
 
 SPEC_FILE ?= ${NAME}.spec
@@ -48,13 +57,17 @@ BUILD_DIR ?= $(PWD)/dist/rpmbuild
 SOURCE_PATH := ${BUILD_DIR}/SOURCES/${SOURCE_NAME}-$(shell echo $(SPIRE_VERSION) | sed 's/^v//').tar.bz2
 
 .PHONY: rpm
-rpm: prepare rpm_package_source rpm_build_source rpm_build
+rpm: print prepare rpm_package_source rpm_build_source rpm_build
 
-bin:
-	./get-artifact.sh
+.PHONY:
+print:
+	@printf "%-20s: %s\n" Name $(NAME)
+	@printf "%-20s: %s\n" 'SPIRE Version' $(SPIRE_VERSION)
+	@printf "%-20s: %s\n" 'ARCH' $(ARCH)
+	@printf "%-20s: %s\n" Build $(BUILD)
 
 .PHONY: prepare
-prepare: bin
+prepare:
 	rm -rf $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/SPECS $(BUILD_DIR)/SOURCES
 	cp $(SPEC_FILE) $(BUILD_DIR)/SPECS/
