@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/spire/pkg/agent/api/rpccontext"
@@ -179,13 +178,7 @@ func (h *Handler) ValidateJWTSVID(ctx context.Context, req *workload.ValidateJWT
 		return nil, err
 	}
 
-	bundles, err := h.getWorkloadBundles(selectors)
-	if err != nil {
-		log.WithError(err).Error("Failed to get workload bundles")
-		return nil, err
-	}
-
-	keyStore, err := keyStoreFromBundles(bundles)
+	keyStore, err := keyStoreFromBundles(h.getWorkloadBundles(selectors))
 	if err != nil {
 		log.WithError(err).Error("Failed to build key store from bundles")
 		return nil, status.Error(codes.Internal, err.Error())
@@ -462,25 +455,16 @@ func isAgent(ctx context.Context) bool {
 	return rpccontext.CallerPID(ctx) == os.Getpid()
 }
 
-func (h *Handler) getWorkloadBundles(selectors []*common.Selector) (bundles []*spiffebundle.Bundle, err error) {
+func (h *Handler) getWorkloadBundles(selectors []*common.Selector) (bundles []*bundleutil.Bundle) {
 	update := h.c.Manager.FetchWorkloadUpdate(selectors)
 
 	if update.Bundle != nil {
-		bundle, err := update.Bundle.ToSPIFFEBundle()
-		if err != nil {
-			return nil, err
-		}
-
-		bundles = append(bundles, bundle)
+		bundles = append(bundles, update.Bundle)
 	}
 	for _, federatedBundle := range update.FederatedBundles {
-		bundle, err := federatedBundle.ToSPIFFEBundle()
-		if err != nil {
-			return nil, err
-		}
-		bundles = append(bundles, bundle)
+		bundles = append(bundles, federatedBundle)
 	}
-	return bundles, nil
+	return bundles
 }
 
 func marshalBundle(certs []*x509.Certificate) []byte {
@@ -491,14 +475,14 @@ func marshalBundle(certs []*x509.Certificate) []byte {
 	return bundle
 }
 
-func keyStoreFromBundles(bundles []*spiffebundle.Bundle) (jwtsvid.KeyStore, error) {
+func keyStoreFromBundles(bundles []*bundleutil.Bundle) (jwtsvid.KeyStore, error) {
 	trustDomainKeys := make(map[spiffeid.TrustDomain]map[string]crypto.PublicKey)
 	for _, bundle := range bundles {
-		td, err := spiffeid.TrustDomainFromString(bundle.TrustDomain().IDString())
+		td, err := spiffeid.TrustDomainFromString(bundle.TrustDomainID())
 		if err != nil {
 			return nil, err
 		}
-		trustDomainKeys[td] = bundle.JWTAuthorities()
+		trustDomainKeys[td] = bundle.JWTSigningKeys()
 	}
 	return jwtsvid.NewKeyStore(trustDomainKeys), nil
 }

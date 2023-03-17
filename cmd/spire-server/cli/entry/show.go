@@ -12,7 +12,6 @@ import (
 	commoncli "github.com/spiffe/spire/pkg/common/cli"
 	"github.com/spiffe/spire/pkg/common/cliprinter"
 	commonutil "github.com/spiffe/spire/pkg/common/util"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"golang.org/x/net/context"
 )
@@ -41,9 +40,6 @@ type showCommand struct {
 
 	// Workload spiffeID
 	spiffeID string
-
-	// Entry hint
-	hint string
 
 	// List of SPIFFE IDs of trust domains the registration entry is federated with
 	federatesWith StringsFlag
@@ -79,7 +75,6 @@ func (c *showCommand) AppendFlags(f *flag.FlagSet) {
 	f.Var(&c.federatesWith, "federatesWith", "SPIFFE ID of a trust domain an entry is federate with. Can be used more than once")
 	f.StringVar(&c.matchFederatesWithOn, "matchFederatesWithOn", "superset", "The match mode used when filtering by federates with. Options: exact, any, superset and subset")
 	f.StringVar(&c.matchSelectorsOn, "matchSelectorsOn", "superset", "The match mode used when filtering by selectors. Options: exact, any, superset and subset")
-	f.StringVar(&c.hint, "hint", "", "The Hint of the records to show (optional)")
 	cliprinter.AppendFlagWithCustomPretty(&c.printer, f, c.env, prettyPrintShow)
 }
 
@@ -170,10 +165,6 @@ func (c *showCommand) fetchEntries(ctx context.Context, client entryv1.EntryClie
 			TrustDomains: c.federatesWith,
 			Match:        matchFederatesWithBehavior,
 		}
-	}
-
-	if c.hint != "" {
-		filter.ByHint = wrapperspb.String(c.hint)
 	}
 
 	pageToken := ""

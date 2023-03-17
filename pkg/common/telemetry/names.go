@@ -122,12 +122,6 @@ const (
 
 	// Mint functionality related to minting identities
 	Mint = "mint"
-
-	// Taint functionality related with tainting a key from the bundle
-	Taint = "taint"
-
-	// Revoke functionality related with revoking a key from the bundle
-	Revoke = "revoke"
 )
 
 // Attribute metric tags or labels that are typically an attribute of a
@@ -165,9 +159,6 @@ const (
 
 	// ByBanned tags filtering by banned agents
 	ByBanned = "by_banned"
-
-	// ByCanReattest tags filtering by agents that can re-attest
-	ByCanReattest = "by_can_reattest"
 
 	// BySelectorMatch tags Match used when filtering by Selectors
 	BySelectorMatch = "by_selector_match"
@@ -220,9 +211,6 @@ const (
 
 	// Count tags some basic count; should be used with other tags and clear messaging to add clarity
 	Count = "count"
-
-	// CreatedAt tags registration entry creation date
-	CreatedAt = "created_at"
 
 	// Csr represents a presented Csr in hashed format. It's hashed using the hex-encoded SHA256 checksum.
 	Csr = "csr"
@@ -305,14 +293,11 @@ const (
 	// FederatesWithMatch tags a federates with match filter
 	FederatesWithMatch = "federates_with_match"
 
-	// FederationRelationship tags a federation relationship
+	// FederationRelationship tags a federation relatioship
 	FederationRelationship = "federation_relationship"
 
 	// Generation represents an objection generation (i.e. version)
 	Generation = "generation"
-
-	// Hint tags registration entry hint
-	Hint = "hint"
 
 	// IDType tags some type of ID (eg. registration ID, SPIFFE ID...)
 	IDType = "id_type"
@@ -545,7 +530,7 @@ const (
 	// X509 declared X509 SVID type, clarifying metrics
 	X509 = "x509"
 
-	// X509AuthoritiesASN1256 tags a X509 authority ASN1 encrypted using SHA256
+	// X509AuthoritiesASN1256 tags a X509 authority ASN1 encryted using SHA256
 	X509AuthoritiesASN1SHA256 = "x509_authorities_asn1_sha256"
 
 	// X509CAs tags some count or list of X509 CAs
@@ -724,7 +709,7 @@ const (
 	// DeleteRegistrationEntry functionality related to deleting a registration entry
 	DeleteRegistrationEntry = "delete_registration_entry"
 
-	// EvictAgent functionality related to evicting an agent
+	// EvictAgent funtionality related to evicting an agent
 	EvictAgent = "evict_agent"
 
 	// FetchBundle functionality related to fetching a CA bundle

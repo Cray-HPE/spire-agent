@@ -1,4 +1,4 @@
-package manager
+package ca
 
 import (
 	"crypto/x509"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/spiffe/spire/pkg/common/diskutil"
-	"github.com/spiffe/spire/pkg/server/ca"
 	"github.com/spiffe/spire/proto/private/server/journal"
 	"github.com/spiffe/spire/proto/spire/common"
 	"github.com/zeebo/errs"
@@ -73,7 +72,7 @@ func (j *Journal) Entries() *JournalEntries {
 	return proto.Clone(j.entries).(*JournalEntries)
 }
 
-func (j *Journal) AppendX509CA(slotID string, issuedAt time.Time, x509CA *ca.X509CA) error {
+func (j *Journal) AppendX509CA(slotID string, issuedAt time.Time, x509CA *X509CA) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -101,7 +100,7 @@ func (j *Journal) AppendX509CA(slotID string, issuedAt time.Time, x509CA *ca.X50
 	return nil
 }
 
-func (j *Journal) AppendJWTKey(slotID string, issuedAt time.Time, jwtKey *ca.JWTKey) error {
+func (j *Journal) AppendJWTKey(slotID string, issuedAt time.Time, jwtKey *JWTKey) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 

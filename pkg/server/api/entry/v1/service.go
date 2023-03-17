@@ -77,10 +77,6 @@ func (s *Service) ListEntries(ctx context.Context, req *entryv1.ListEntriesReque
 	if req.Filter != nil {
 		rpccontext.AddRPCAuditFields(ctx, fieldsFromListEntryFilter(ctx, s.td, req.Filter))
 
-		if req.Filter.ByHint != nil {
-			listReq.ByHint = req.Filter.ByHint.GetValue()
-		}
-
 		if req.Filter.ByParentId != nil {
 			parentID, err := api.TrustDomainMemberIDFromProto(ctx, s.td, req.Filter.ByParentId)
 			if err != nil {
@@ -389,14 +385,6 @@ func applyMask(e *types.Entry, mask *types.EntryMask) {
 	if !mask.JwtSvidTtl {
 		e.JwtSvidTtl = 0
 	}
-
-	if !mask.Hint {
-		e.Hint = ""
-	}
-
-	if !mask.CreatedAt {
-		e.CreatedAt = 0
-	}
 }
 
 func (s *Service) updateEntry(ctx context.Context, e *types.Entry, inputMask *types.EntryMask, outputMask *types.EntryMask) *entryv1.BatchUpdateEntryResponse_Result {
@@ -424,7 +412,6 @@ func (s *Service) updateEntry(ctx context.Context, e *types.Entry, inputMask *ty
 			StoreSvid:     inputMask.StoreSvid,
 			X509SvidTtl:   inputMask.X509SvidTtl,
 			JwtSvidTtl:    inputMask.JwtSvidTtl,
-			Hint:          inputMask.Hint,
 		}
 	}
 	dsEntry, err := s.ds.UpdateRegistrationEntry(ctx, convEntry, mask)
@@ -520,23 +507,11 @@ func fieldsFromEntryProto(ctx context.Context, proto *types.Entry, inputMask *ty
 		fields[telemetry.StoreSvid] = proto.StoreSvid
 	}
 
-	if inputMask == nil || inputMask.Hint {
-		fields[telemetry.Hint] = proto.Hint
-	}
-
-	if inputMask == nil || inputMask.CreatedAt {
-		fields[telemetry.CreatedAt] = proto.CreatedAt
-	}
-
 	return fields
 }
 
 func fieldsFromListEntryFilter(ctx context.Context, td spiffeid.TrustDomain, filter *entryv1.ListEntriesRequest_Filter) logrus.Fields {
 	fields := logrus.Fields{}
-
-	if filter.ByHint != nil {
-		fields[telemetry.Hint] = filter.ByHint.Value
-	}
 
 	if filter.ByParentId != nil {
 		if parentID, err := api.TrustDomainMemberIDFromProto(ctx, td, filter.ByParentId); err == nil {

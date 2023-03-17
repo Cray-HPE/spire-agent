@@ -16,7 +16,6 @@ func TestAllTrueMasks(t *testing.T) {
 		X509SvidExpiresAt:    true,
 		Selectors:            true,
 		Banned:               true,
-		CanReattest:          true,
 	}, protoutil.AllTrueAgentMask)
 
 	spiretest.AssertProtoEqual(t, &types.BundleMask{
@@ -34,13 +33,11 @@ func TestAllTrueMasks(t *testing.T) {
 		JwtSvidTtl:     true,
 		FederatesWith:  true,
 		Admin:          true,
-		CreatedAt:      true,
 		Downstream:     true,
 		ExpiresAt:      true,
 		DnsNames:       true,
 		RevisionNumber: true,
 		StoreSvid:      true,
-		Hint:           true,
 	}, protoutil.AllTrueEntryMask)
 
 	spiretest.AssertProtoEqual(t, &common.BundleMask{

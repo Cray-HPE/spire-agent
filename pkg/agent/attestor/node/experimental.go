@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
@@ -31,7 +30,7 @@ func (a *attestor) getSVID(ctx context.Context, conn *grpc.ClientConn, csr []byt
 	return stream.SVID, stream.Reattestable, nil
 }
 
-func (a *attestor) getBundle(ctx context.Context, conn *grpc.ClientConn) (*spiffebundle.Bundle, error) {
+func (a *attestor) getBundle(ctx context.Context, conn *grpc.ClientConn) (*bundleutil.Bundle, error) {
 	updatedBundle, err := bundlev1.NewBundleClient(conn).GetBundle(ctx, &bundlev1.GetBundleRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updated bundle %w", err)
@@ -42,7 +41,7 @@ func (a *attestor) getBundle(ctx context.Context, conn *grpc.ClientConn) (*spiff
 		return nil, fmt.Errorf("failed to parse trust domain bundle: %w", err)
 	}
 
-	bundle, err := bundleutil.SPIFFEBundleFromProto(b)
+	bundle, err := bundleutil.BundleFromProto(b)
 	if err != nil {
 		return nil, fmt.Errorf("invalid trust domain bundle: %w", err)
 	}
