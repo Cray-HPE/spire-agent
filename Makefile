@@ -35,7 +35,7 @@ export SPIRE_VERSION := $(shell git vendor list spire | grep ref | awk '{print $
 endif
 
 ifeq ($(BUILD),)
-BUILD := $(shell git describe --tags | tr -s '-' '~' | sed 's/^v//')
+export BUILD := $(shell git describe --tags | tr -s '-' '~' | sed 's/^v//')
 endif
 
 # By default, if these are not set then set them to match the host.
@@ -59,7 +59,7 @@ SOURCE_PATH := ${BUILD_DIR}/SOURCES/${SOURCE_NAME}-$(shell echo $(SPIRE_VERSION)
 .PHONY: rpm
 rpm: print prepare rpm_package_source rpm_build_source rpm_build
 
-.PHONY:
+.PHONY: print
 print:
 	@printf "%-20s: %s\n" Name $(NAME)
 	@printf "%-20s: %s\n" 'SPIRE Version' $(SPIRE_VERSION)
