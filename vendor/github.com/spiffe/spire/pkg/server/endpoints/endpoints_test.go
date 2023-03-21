@@ -89,8 +89,6 @@ func TestNew(t *testing.T) {
 		CA:            serverCA,
 		Catalog:       cat,
 		TrustDomain:   testTD,
-		CredBuilder:   serverCA.CredBuilder(),
-		CredValidator: serverCA.CredValidator(),
 		Dir:           spiretest.TempDir(t),
 		Log:           log,
 		Metrics:       metrics,
@@ -156,8 +154,6 @@ func TestNewErrorCreatingAuthorizedEntryFetcher(t *testing.T) {
 		CA:            serverCA,
 		Catalog:       cat,
 		TrustDomain:   testTD,
-		CredBuilder:   serverCA.CredBuilder(),
-		CredValidator: serverCA.CredValidator(),
 		Dir:           spiretest.TempDir(t),
 		Log:           log,
 		Metrics:       metrics,
@@ -226,7 +222,6 @@ func TestListenAndServe(t *testing.T) {
 		SVIDObserver: newSVIDObserver(serverSVID),
 		TrustDomain:  testTD,
 		DataStore:    ds,
-		BundleCache:  bundle.NewCache(ds, clk),
 		APIServers: APIServers{
 			AgentServer:       &agentv1.UnimplementedAgentServer{},
 			BundleServer:      &bundlev1.UnimplementedBundleServer{},
@@ -348,15 +343,11 @@ func TestListenAndServe(t *testing.T) {
 			require.Error(t, err)
 
 			switch {
-			// This message can be returned on macOS
-			case strings.Contains(err.Error(), "write: broken pipe"):
-			// This message can be returned on Windows
-			case strings.Contains(err.Error(), "connection was forcibly closed by the remote host"):
 			case strings.Contains(err.Error(), "connection reset by peer"):
 			case strings.Contains(err.Error(), "tls: bad certificate"):
 				return
 			default:
-				t.Errorf("expected invalid connection for misconfigured foreign admin caller: %s", err.Error())
+				t.Error("expected invalid connection for misconfigured foreign admin caller")
 			}
 		}
 	})

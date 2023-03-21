@@ -2,7 +2,6 @@ version: '3'
 services:
   postgres-10-readwrite:
     image: postgres:10
-    command: -c fsync=off
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=postgres
@@ -15,7 +14,6 @@ services:
       - "9999:5432"
   postgres-10-readonly:
     image: postgres:10
-    command: -c fsync=off
     user: postgres
     environment:
       - POSTGRES_PASSWORD=password
@@ -30,7 +28,6 @@ services:
       - "10000:5432"
   postgres-11-readwrite:
     image: postgres:11
-    command: -c fsync=off
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=postgres
@@ -43,7 +40,6 @@ services:
       - "9999:5432"
   postgres-11-readonly:
     image: postgres:11
-    command: -c fsync=off
     user: postgres
     environment:
       - POSTGRES_PASSWORD=password
@@ -58,7 +54,6 @@ services:
       - "10000:5432"
   postgres-12-readwrite:
     image: postgres:12
-    command: -c fsync=off
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=postgres
@@ -71,7 +66,6 @@ services:
       - "9999:5432"
   postgres-12-readonly:
     image: postgres:12
-    command: -c fsync=off
     user: postgres
     environment:
       - POSTGRES_PASSWORD=password

@@ -50,11 +50,19 @@ help:
 	@echo "  $(cyan)images$(reset)                                - build all SPIRE Docker images"
 	@echo "  $(cyan)spire-server-image$(reset)                    - build SPIRE server Docker image"
 	@echo "  $(cyan)spire-agent-image$(reset)                     - build SPIRE agent Docker image"
+	@echo "  $(cyan)k8s-workload-registrar-image$(reset)          - build Kubernetes Workload Registrar Docker image"
 	@echo "  $(cyan)oidc-discovery-provider-image$(reset)         - build OIDC Discovery Provider Docker image"
+	@echo "$(bold)Docker from scratch image:$(reset)"
+	@echo "  $(cyan)scratch-images$(reset)                        - build all SPIRE Docker from scratch images"
+	@echo "  $(cyan)spire-server-scratch-image$(reset)            - build SPIRE server Docker scratch image"
+	@echo "  $(cyan)spire-agent-scratch-image$(reset)             - build SPIRE agent Docker scratch image"
+	@echo "  $(cyan)k8s-workload-registrar-scratch-image$(reset)  - build Kubernetes Workload Registrar Docker scratch image"
+	@echo "  $(cyan)oidc-discovery-provider-scratch-image$(reset) - build OIDC Discovery Provider Docker image"
 	@echo "$(bold)Windows docker image:$(reset)"
 	@echo "  $(cyan)images-windows$(reset)                        - build all SPIRE Docker images for windows"
 	@echo "  $(cyan)spire-server-image-windows$(reset)            - build SPIRE server Docker image for windows"
 	@echo "  $(cyan)spire-agent-image-windows$(reset)             - build SPIRE agent Docker image for windows"
+	@echo "  $(cyan)k8s-workload-registrar-image-windows$(reset)  - build Kubernetes Workload Registrar Docker image for windows"
 	@echo "  $(cyan)oidc-discovery-provider-image-windows$(reset) - build OIDC Discovery Provider Docker image for windows"
 	@echo "$(bold)Developer support:$(reset)"
 	@echo "  $(cyan)dev-image$(reset)                             - build the development Docker image"
@@ -103,9 +111,7 @@ endif
 # Vars
 ############################################################################
 
-PLATFORMS ?= linux/amd64,linux/arm64
-
-binaries := spire-server spire-agent oidc-discovery-provider
+binaries := spire-server spire-agent oidc-discovery-provider k8s-workload-registrar
 
 build_dir := $(DIR)/.build/$(os1)-$(arch1)
 
@@ -125,12 +131,12 @@ endif
 
 go_path := PATH="$(go_bin_dir):$(PATH)"
 
-golangci_lint_version = v1.51.1
+golangci_lint_version = v1.50.0
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 golangci_lint_cache = $(golangci_lint_dir)/cache
 
-markdown_lint_version = v0.33.0
+markdown_lint_version = v0.32.2
 markdown_lint_image = ghcr.io/igorshubovych/markdownlint-cli:$(markdown_lint_version)
 
 protoc_version = 3.20.1
@@ -257,7 +263,7 @@ bin/%: support/k8s/% FORCE | go-check
 	$(E)$(go_build) $@$(exe) ./$<
 
 #############################################################################
-# Build static binaries for docker images
+# Build Static binaries for scratch docker images
 #############################################################################
 
 .PHONY: build-static
@@ -323,19 +329,14 @@ artifact: build
 # Docker Images
 #############################################################################
 
-.PHONY: container-builder
-container-builder:
-	$(E)docker buildx create --platform $(PLATFORMS) --name container-builder --node container-builder0 --use
-
 define image_rule
 .PHONY: $1
-$1: $3 container-builder
+$1: $3
 	echo Building docker image $2 $(PLATFORM)…
-	$(E)docker buildx build \
-		--platform $(PLATFORMS) \
+	$(E)docker build \
 		--build-arg goversion=$(go_version_full) \
 		--target $2 \
-		-o type=oci,dest=$2-image.tar \
+		-t $2 -t $2:latest-local \
 		-f $3 \
 		.
 
@@ -346,33 +347,32 @@ images: $(addsuffix -image,$(binaries))
 
 $(eval $(call image_rule,spire-server-image,spire-server,Dockerfile))
 $(eval $(call image_rule,spire-agent-image,spire-agent,Dockerfile))
+$(eval $(call image_rule,k8s-workload-registrar-image,k8s-workload-registrar,Dockerfile))
 $(eval $(call image_rule,oidc-discovery-provider-image,oidc-discovery-provider,Dockerfile))
 
-load-images:
-	.github/workflows/scripts/load-oci-archives.sh
+#############################################################################
+# Docker Images FROM scratch
+#############################################################################
+
+.PHONY: scratch-images
+scratch-images: $(addsuffix -scratch-image,$(binaries))
+
+$(eval $(call image_rule,spire-server-scratch-image,spire-server-scratch,Dockerfile.scratch))
+$(eval $(call image_rule,spire-agent-scratch-image,spire-agent-scratch,Dockerfile.scratch))
+$(eval $(call image_rule,k8s-workload-registrar-scratch-image,k8s-workload-registrar-scratch,Dockerfile.scratch))
+$(eval $(call image_rule,oidc-discovery-provider-scratch-image,oidc-discovery-provider-scratch,Dockerfile.scratch))
 
 #############################################################################
 # Windows Docker Images
 #############################################################################
-define windows_image_rule
-.PHONY: $1
-$1: $3
-	echo Building docker image $2…
-	$(E)docker build \
-		--build-arg goversion=$(go_version_full) \
-		--target $2 \
-		-t $2 -t $2:latest-local \
-		-f $3 \
-		.
-
-endef
 
 .PHONY: images-windows
 images-windows: $(addsuffix -windows-image,$(binaries))
 
-$(eval $(call windows_image_rule,spire-server-windows-image,spire-server-windows,Dockerfile.windows))
-$(eval $(call windows_image_rule,spire-agent-windows-image,spire-agent-windows,Dockerfile.windows))
-$(eval $(call windows_image_rule,oidc-discovery-provider-windows-image,oidc-discovery-provider-windows,Dockerfile.windows))
+$(eval $(call image_rule,spire-server-windows-image,spire-server-windows,Dockerfile.windows))
+$(eval $(call image_rule,spire-agent-windows-image,spire-agent-windows,Dockerfile.windows))
+$(eval $(call image_rule,k8s-workload-registrar-windows-image,k8s-workload-registrar-windows,Dockerfile.windows))
+$(eval $(call image_rule,oidc-discovery-provider-windows-image,oidc-discovery-provider-windows,Dockerfile.windows))
 
 #############################################################################
 # Code cleanliness

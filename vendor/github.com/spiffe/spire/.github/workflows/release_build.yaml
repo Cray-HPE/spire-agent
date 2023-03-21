@@ -4,7 +4,7 @@ on:
     tags:
       - 'v[0-9].[0-9]+.[0-9]+'
 env:
-  GO_VERSION: 1.20.1
+  GO_VERSION: 1.19.6
 jobs:
   cache-deps:
     name: cache-deps (linux)
@@ -15,13 +15,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Setup dep cache
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -38,21 +38,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Setup build tool cache
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Lint
         run: make lint
       - name: Tidy check
@@ -74,13 +76,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -97,13 +99,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -120,25 +122,27 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Load cached build tools
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Build artifacts
         run: ./.github/workflows/scripts/build_artifacts.sh
       - name: Archive artifacts
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # ratchet:actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: ./artifacts/
@@ -153,27 +157,29 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Load cached build tools
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Build images
         run: make images
       - name: Export images
-        run: tar -czvf images.tar.gz *-image.tar
+        run: docker save spire-server:latest-local spire-agent:latest-local k8s-workload-registrar:latest-local oidc-discovery-provider:latest-local | gzip > images.tar.gz
       - name: Archive images
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # ratchet:actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: images
           path: images.tar.gz
@@ -188,9 +194,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Download artifacts
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # ratchet:actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v3
         with:
           name: bin-windows
           path: ./bin/
@@ -201,15 +207,51 @@ jobs:
           docker save spire-server-windows:latest-local spire-agent-windows:latest-local oidc-discovery-provider-windows:latest-local -o images-windows.tar
           gzip images-windows.tar
       - name: Archive images
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # ratchet:actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: images-windows
           path: images-windows.tar.gz
 
+  scratch-images:
+    runs-on: ubuntu-20.04
+    needs: [cache-deps]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Load cached deps
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      - name: Load cached build tools
+        uses: actions/cache@v3
+        with:
+          path: .build
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
+      - name: Build scratch images
+        run: make scratch-images
+      - name: Export scratch images
+        run: docker save spire-server-scratch:latest-local spire-agent-scratch:latest-local k8s-workload-registrar-scratch:latest-local oidc-discovery-provider-scratch:latest-local | gzip > scratch-images.tar.gz
+      - name: Archive scratch images
+        uses: actions/upload-artifact@v3
+        with:
+          name: scratch-images
+          path: scratch-images.tar.gz
+
   integration:
     name: integration (linux)
     runs-on: ubuntu-20.04
-    needs: [cache-deps, images]
+    needs: [cache-deps, images, scratch-images]
 
     permissions:
       contents: read
@@ -221,7 +263,7 @@ jobs:
         runner_id: [1, 2, 3, 4, 5]
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
         with:
           # The "upgrade" integration test needs the history to ensure
           # that the version number in the source code has been bumped as
@@ -238,30 +280,35 @@ jobs:
       - name: Fix tag annotations
         run: git fetch --tags --force
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Install regctl
-        uses: regclient/actions/regctl-installer@b6614f5f56245066b533343a85f4109bdc38c8cc # ratchet:regclient/actions/regctl-installer@main
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Load cached build tools
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Download archived images
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # ratchet:actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v3
         with:
           name: images
           path: .
+      - name: Download archived scratch images
+        uses: actions/download-artifact@v3
+        with:
+          name: scratch-images
+          path: .
       - name: Load archived images
-        run: |
-          tar xvf images.tar.gz
-          make load-images
+        run: zcat images.tar.gz | docker load
+      - name: Load archived scratch images
+        run: zcat scratch-images.tar.gz | docker load
       - name: Run integration tests
         env:
           NUM_RUNNERS: ${{ matrix.num_runners }}
@@ -285,31 +332,36 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Load cached build tools
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Install msys2
-        uses: msys2/setup-msys2@d40200dc2db4c351366b048a9565ad82919e1c24 # ratchet:msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           path-type: inherit
           install: >-
-            git base-devel mingw-w64-x86_64-toolchain unzip
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            unzip
       - name: Download archived images
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # ratchet:actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v3
         with:
           name: images-windows
           path: .
@@ -328,13 +380,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Setup dep cache
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -354,28 +406,33 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Setup build tool cache
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Install msys2
-        uses: msys2/setup-msys2@d40200dc2db4c351366b048a9565ad82919e1c24 # ratchet:msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: >-
-            git base-devel mingw-w64-x86_64-toolchain unzip
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            unzip
       - name: Lint
         run: make lint-code
       - name: Tidy check
@@ -396,23 +453,26 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Install msys2
-        uses: msys2/setup-msys2@d40200dc2db4c351366b048a9565ad82919e1c24 # ratchet:msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: >-
-            git base-devel mingw-w64-x86_64-toolchain unzip
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            unzip
       - name: Run unit tests
         run: ./.github/workflows/scripts/run_unit_tests.sh
 
@@ -429,52 +489,60 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # ratchet:actions/setup-go@v3.5.0
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Load cached deps
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
       - name: Load cached build tools
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # ratchet:actions/cache@v3.2.4
+        uses: actions/cache@v3
         with:
           path: .build
-          key: ${{ runner.os }}-tools-${{ hashFiles('.go-version','Makefile') }}
+          key: ${{ runner.os }}-tools-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tools-
       - name: Install msys2
-        uses: msys2/setup-msys2@d40200dc2db4c351366b048a9565ad82919e1c24 # ratchet:msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: >-
-            git base-devel mingw-w64-x86_64-toolchain zip unzip
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            zip
+            unzip
       - name: Build artifacts
         run: ./.github/workflows/scripts/build_artifacts.sh
       - name: Archive binaries
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # ratchet:actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: bin-windows
           path: ./bin/
       - name: Archive artifacts
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # ratchet:actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: ./artifacts/
 
   publish-artifacts:
     runs-on: ubuntu-20.04
-    needs: [lint, unit-test, unit-test-race-detector, artifacts, integration, lint-windows, unit-test-windows, artifact-windows, integration-windows]
+    needs: [lint, unit-test, unit-test-race-detector, artifacts, integration,
+            lint-windows, unit-test-windows, artifact-windows, integration-windows]
+
     permissions:
       contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
+        uses: actions/checkout@v3
       - name: Download archived artifacts
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # ratchet:actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v3
         with:
           name: binaries
           path: ./artifacts/
@@ -492,36 +560,42 @@ jobs:
 
   publish-images:
     runs-on: ubuntu-20.04
-    needs: [lint, unit-test, unit-test-race-detector, artifacts, integration, lint-windows, unit-test-windows, artifact-windows, integration-windows]
+    needs: [lint, unit-test, unit-test-race-detector, artifacts, integration]
+
     permissions:
       contents: read
-      id-token: write
       packages: write
-
-    env:
-      COSIGN_EXPERIMENTAL: 1
 
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3.3.0
-      - name: Install cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # ratchet:sigstore/cosign-installer@v2.8.1
-        with:
-          cosign-release: v1.13.1
-      - name: Install regctl
-        uses: regclient/actions/regctl-installer@b6614f5f56245066b533343a85f4109bdc38c8cc # ratchet:regclient/actions/regctl-installer@main
+        uses: actions/checkout@v3
       - name: Download archived images
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # ratchet:actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v3
         with:
           name: images
           path: .
+      - name: Download archived scratch images
+        uses: actions/download-artifact@v3
+        with:
+          name: scratch-images
+          path: .
+      - name: Load archived images
+        run: zcat images.tar.gz | docker load
+      - name: Load archived scratch images
+        run: zcat scratch-images.tar.gz | docker load
+      - name: Log in to GCR
+        uses: docker/login-action@v2
+        with:
+          registry: gcr.io
+          username: _json_key
+          password: ${{ secrets.GCR_JSON_KEY }}
+      - name: Push images
+        run: ./.github/workflows/scripts/push-images.sh "${GITHUB_REF}"
       - name: Log in to GHCR
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2.1.0
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push images
-        run: |
-          tar xzvf images.tar.gz
-          ./.github/workflows/scripts/push-images.sh "${GITHUB_REF}"
+        run: ./.github/workflows/scripts/push-images.sh "${GITHUB_REF}" -scratch

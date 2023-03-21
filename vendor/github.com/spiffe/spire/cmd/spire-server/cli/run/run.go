@@ -35,7 +35,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundleClient "github.com/spiffe/spire/pkg/server/bundle/client"
 	"github.com/spiffe/spire/pkg/server/ca"
-	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
 )
@@ -48,16 +47,21 @@ const (
 )
 
 var (
+	defaultCASubject = pkix.Name{
+		Country:      []string{"US"},
+		Organization: []string{"SPIFFE"},
+	}
+
 	defaultRateLimit = true
 )
 
 // Config contains all available configurables, arranged by section
 type Config struct {
-	Server       *serverConfig        `hcl:"server"`
-	Plugins      ast.Node             `hcl:"plugins"`
-	Telemetry    telemetry.FileConfig `hcl:"telemetry"`
-	HealthChecks health.Config        `hcl:"health_checks"`
-	UnusedKeys   []string             `hcl:",unusedKeys"`
+	Server       *serverConfig               `hcl:"server"`
+	Plugins      *catalog.HCLPluginConfigMap `hcl:"plugins"`
+	Telemetry    telemetry.FileConfig        `hcl:"telemetry"`
+	HealthChecks health.Config               `hcl:"health_checks"`
+	UnusedKeys   []string                    `hcl:",unusedKeys"`
 }
 
 type serverConfig struct {
@@ -91,6 +95,10 @@ type serverConfig struct {
 	ProfilingPort    int      `hcl:"profiling_port"`
 	ProfilingFreq    int      `hcl:"profiling_freq"`
 	ProfilingNames   []string `hcl:"profiling_names"`
+
+	// Deprecated: remove in SPIRE 1.6.0
+	DefaultSVIDTTL  string `hcl:"default_svid_ttl"`
+	OmitX509SVIDUID *bool  `hcl:"omit_x509svid_uid"`
 
 	UnusedKeys []string `hcl:",unusedKeys"`
 }
@@ -472,10 +480,22 @@ func NewServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool
 			return nil, fmt.Errorf("could not parse default X509 SVID ttl %q: %w", c.Server.DefaultX509SVIDTTL, err)
 		}
 		sc.X509SVIDTTL = ttl
+
+		if sc.X509SVIDTTL != 0 && c.Server.DefaultSVIDTTL != "" {
+			logger.Warnf("both default_x509_svid_ttl and default_svid_ttl are configured; default_x509_svid_ttl (%s) will be used for X509-SVIDs", c.Server.DefaultX509SVIDTTL)
+		}
+	case c.Server.DefaultSVIDTTL != "":
+		logger.Warn("field default_svid_ttl is deprecated; consider using default_x509_svid_ttl and default_jwt_svid_ttl instead")
+
+		ttl, err := time.ParseDuration(c.Server.DefaultSVIDTTL)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse default SVID ttl %q: %w", c.Server.DefaultSVIDTTL, err)
+		}
+		sc.X509SVIDTTL = ttl
 	default:
 		// If neither new nor deprecated config value is set, then use hard-coded default TTL
 		// Note, due to back-compat issues we cannot set this default inside defaultConfig() function
-		sc.X509SVIDTTL = credtemplate.DefaultX509SVIDTTL
+		sc.X509SVIDTTL = ca.DefaultX509SVIDTTL
 	}
 
 	if c.Server.DefaultJWTSVIDTTL != "" {
@@ -484,10 +504,14 @@ func NewServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool
 			return nil, fmt.Errorf("could not parse default JWT SVID ttl %q: %w", c.Server.DefaultJWTSVIDTTL, err)
 		}
 		sc.JWTSVIDTTL = ttl
+
+		if sc.JWTSVIDTTL != 0 && c.Server.DefaultSVIDTTL != "" {
+			logger.Warnf("both default_jwt_svid_ttl and default_svid_ttl are configured; default_jwt_svid_ttl (%s) will be used for JWT-SVIDs", c.Server.DefaultJWTSVIDTTL)
+		}
 	} else {
 		// If not set using new field then use hard-coded default TTL
 		// Note, due to back-compat issues we cannot set this default inside defaultConfig() function
-		sc.JWTSVIDTTL = credtemplate.DefaultJWTSVIDTTL
+		sc.JWTSVIDTTL = ca.DefaultJWTSVIDTTL
 	}
 
 	if c.Server.CATTL != "" {
@@ -505,7 +529,7 @@ func NewServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool
 		ttl  time.Duration
 	}{
 		{
-			name: "default_x509_svid_ttl",
+			name: "default_x509_svid_ttl (or deprecated default_svid_ttl)",
 			ttl:  sc.X509SVIDTTL,
 		},
 		{
@@ -587,13 +611,15 @@ func NewServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool
 	}
 	// RFC3280(4.1.2.4) requires the issuer DN be set.
 	if isPKIXNameEmpty(sc.CASubject) {
-		sc.CASubject = credtemplate.DefaultX509CASubject()
+		sc.CASubject = defaultCASubject
 	}
 
-	sc.PluginConfigs, err = catalog.PluginConfigsFromHCLNode(c.Plugins)
-	if err != nil {
-		return nil, err
+	if c.Server.OmitX509SVIDUID != nil {
+		sc.Log.Warn("The omit_x509svid_uid flag is deprecated and will be removed from a future release")
+		sc.OmitX509SVIDUID = *c.Server.OmitX509SVIDUID
 	}
+
+	sc.PluginConfigs = *c.Plugins
 	sc.Telemetry = c.Telemetry
 	sc.HealthChecks = c.HealthChecks
 
@@ -820,7 +846,7 @@ func defaultConfig() *Config {
 		Server: &serverConfig{
 			BindAddress:  "0.0.0.0",
 			BindPort:     8081,
-			CATTL:        credtemplate.DefaultX509CATTL.String(),
+			CATTL:        ca.DefaultCATTL.String(),
 			LogLevel:     defaultLogLevel,
 			LogFormat:    log.DefaultFormat,
 			Experimental: experimentalConfig{},

@@ -20,18 +20,17 @@ import (
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 	svidv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/svid/v1"
 	"github.com/spiffe/spire/cmd/spire-server/util"
-	commoncli "github.com/spiffe/spire/pkg/common/cli"
-	"github.com/spiffe/spire/pkg/common/cliprinter"
+	common_cli "github.com/spiffe/spire/pkg/common/cli"
 	"github.com/spiffe/spire/pkg/common/diskutil"
 )
 
 type generateKeyFunc func() (crypto.Signer, error)
 
 func NewMintCommand() cli.Command {
-	return newMintCommand(commoncli.DefaultEnv, nil)
+	return newMintCommand(common_cli.DefaultEnv, nil)
 }
 
-func newMintCommand(env *commoncli.Env, generateKey generateKeyFunc) cli.Command {
+func newMintCommand(env *common_cli.Env, generateKey generateKeyFunc) cli.Command {
 	if generateKey == nil {
 		generateKey = func() (crypto.Signer, error) {
 			return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -39,7 +38,6 @@ func newMintCommand(env *commoncli.Env, generateKey generateKeyFunc) cli.Command
 	}
 	return util.AdaptCommand(env, &mintCommand{
 		generateKey: generateKey,
-		env:         env,
 	})
 }
 
@@ -48,10 +46,8 @@ type mintCommand struct {
 
 	spiffeID string
 	ttl      time.Duration
-	dnsNames commoncli.StringsFlag
+	dnsNames common_cli.StringsFlag
 	write    string
-	env      *commoncli.Env
-	printer  cliprinter.Printer
 }
 
 func (c *mintCommand) Name() string {
@@ -67,10 +63,9 @@ func (c *mintCommand) AppendFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&c.ttl, "ttl", 0, "TTL of the X509-SVID")
 	fs.Var(&c.dnsNames, "dns", "DNS name that will be included in SVID. Can be used more than once.")
 	fs.StringVar(&c.write, "write", "", "Directory to write output to instead of stdout")
-	cliprinter.AppendFlagWithCustomPretty(&c.printer, fs, c.env, c.prettyPrintMint)
 }
 
-func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient util.ServerClient) error {
+func (c *mintCommand) Run(ctx context.Context, env *common_cli.Env, serverClient util.ServerClient) error {
 	if c.spiffeID == "" {
 		return errors.New("spiffeID must be specified")
 	}
@@ -126,20 +121,37 @@ func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient 
 		return err
 	}
 
-	rootCAs := make([][]byte, len(ca.X509Authorities))
-	for i, rootCA := range ca.X509Authorities {
-		rootCAs[i] = rootCA.Asn1
-	}
-
-	if c.write == "" {
-		return c.printer.PrintStruct(&mintResult{
-			X509SVID:   resp.Svid.CertChain,
-			PrivateKey: keyBytes,
-			RootCAs:    rootCAs,
+	svidPEM := new(bytes.Buffer)
+	for _, certDER := range resp.Svid.CertChain {
+		_ = pem.Encode(svidPEM, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certDER,
 		})
 	}
 
-	svidPEM, keyPEM, bundlePEM := convertSVIDResultToPEM(keyBytes, resp.Svid.CertChain, rootCAs)
+	keyPEM := new(bytes.Buffer)
+	_ = pem.Encode(keyPEM, &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	bundlePEM := new(bytes.Buffer)
+	for _, rootCA := range ca.X509Authorities {
+		_ = pem.Encode(bundlePEM, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: rootCA.Asn1,
+		})
+	}
+
+	if c.write == "" {
+		if err := env.Printf("X509-SVID:\n%s\n", svidPEM.String()); err != nil {
+			return err
+		}
+		if err := env.Printf("Private key:\n%s\n", keyPEM.String()); err != nil {
+			return err
+		}
+		return env.Printf("Root CAs:\n%s\n", bundlePEM.String())
+	}
 
 	svidPath := env.JoinPath(c.write, "svid.pem")
 	keyPath := env.JoinPath(c.write, "key.pem")
@@ -169,56 +181,4 @@ func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient 
 // the nearest second
 func ttlToSeconds(ttl time.Duration) int32 {
 	return int32((ttl + time.Second - 1) / time.Second)
-}
-
-type mintResult struct {
-	X509SVID   [][]byte `json:"x509_svid"`
-	PrivateKey []byte   `json:"private_key"`
-	RootCAs    [][]byte `json:"root_cas"`
-}
-
-func (c *mintCommand) prettyPrintMint(env *commoncli.Env, results ...interface{}) error {
-	if resultInterface, ok := results[0].([]interface{}); ok {
-		result, ok := resultInterface[0].(*mintResult)
-		if !ok {
-			return errors.New("unexpected type")
-		}
-
-		svidPEM, keyPEM, bundlePEM := convertSVIDResultToPEM(result.PrivateKey, result.X509SVID, result.RootCAs)
-
-		if err := env.Printf("X509-SVID:\n%s\n", svidPEM.String()); err != nil {
-			return err
-		}
-		if err := env.Printf("Private key:\n%s\n", keyPEM.String()); err != nil {
-			return err
-		}
-		return env.Printf("Root CAs:\n%s\n", bundlePEM.String())
-	}
-
-	return cliprinter.ErrInternalCustomPrettyFunc
-}
-
-func convertSVIDResultToPEM(privateKey []byte, svidCertChain, rootCAs [][]byte) (*bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
-	svidPEM := new(bytes.Buffer)
-	for _, certDER := range svidCertChain {
-		_ = pem.Encode(svidPEM, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certDER,
-		})
-	}
-
-	keyPEM := new(bytes.Buffer)
-	_ = pem.Encode(keyPEM, &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: privateKey,
-	})
-
-	bundlePEM := new(bytes.Buffer)
-	for _, rootCA := range rootCAs {
-		_ = pem.Encode(bundlePEM, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: rootCA,
-		})
-	}
-	return svidPEM, keyPEM, bundlePEM
 }

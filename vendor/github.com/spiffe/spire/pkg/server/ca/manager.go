@@ -6,8 +6,10 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -23,8 +25,6 @@ import (
 	"github.com/spiffe/spire/pkg/common/util"
 	"github.com/spiffe/spire/pkg/common/x509util"
 	"github.com/spiffe/spire/pkg/server/catalog"
-	"github.com/spiffe/spire/pkg/server/credtemplate"
-	"github.com/spiffe/spire/pkg/server/credvalidator"
 	"github.com/spiffe/spire/pkg/server/datastore"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
 	"github.com/spiffe/spire/pkg/server/plugin/notifier"
@@ -36,6 +36,7 @@ import (
 )
 
 const (
+	DefaultCATTL    = 24 * time.Hour
 	backdate        = 10 * time.Second
 	rotateInterval  = 10 * time.Second
 	pruneInterval   = 6 * time.Hour
@@ -59,12 +60,12 @@ type ManagedCA interface {
 
 type ManagerConfig struct {
 	CA            ManagedCA
-	CredBuilder   *credtemplate.Builder
-	CredValidator *credvalidator.Validator
 	Catalog       catalog.Catalog
 	TrustDomain   spiffeid.TrustDomain
+	CATTL         time.Duration
 	X509CAKeyType keymanager.KeyType
 	JWTKeyType    keymanager.KeyType
+	CASubject     pkix.Name
 	Dir           string
 	Log           logrus.FieldLogger
 	Metrics       telemetry.Metrics
@@ -74,7 +75,6 @@ type ManagerConfig struct {
 
 type Manager struct {
 	c                  ManagerConfig
-	caTTL              time.Duration
 	bundleUpdatedCh    chan struct{}
 	upstreamClient     *UpstreamClient
 	upstreamPluginName string
@@ -94,13 +94,15 @@ type Manager struct {
 }
 
 func NewManager(c ManagerConfig) *Manager {
+	if c.CATTL <= 0 {
+		c.CATTL = DefaultCATTL
+	}
 	if c.Clock == nil {
 		c.Clock = clock.New()
 	}
 
 	m := &Manager{
 		c:               c,
-		caTTL:           c.CredBuilder.Config().X509CATTL,
 		bundleUpdatedCh: make(chan struct{}, 1),
 	}
 
@@ -243,13 +245,19 @@ func (m *Manager) prepareX509CA(ctx context.Context, slot *x509CASlot) (err erro
 
 	var x509CA *X509CA
 	if m.upstreamClient != nil {
-		x509CA, err = m.upstreamSignX509CA(ctx, signer)
+		x509CA, err = UpstreamSignX509CA(ctx, signer, m.c.TrustDomain, m.c.CASubject, m.upstreamClient, m.c.CATTL)
 		if err != nil {
 			return err
 		}
 	} else {
-		x509CA, err = m.selfSignX509CA(ctx, signer)
+		notBefore := now.Add(-backdate)
+		notAfter := now.Add(m.c.CATTL)
+		var trustBundle []*x509.Certificate
+		x509CA, trustBundle, err = SelfSignX509CA(ctx, signer, m.c.TrustDomain, m.c.CASubject, notBefore, notAfter)
 		if err != nil {
+			return err
+		}
+		if _, err := m.appendBundle(ctx, trustBundle, nil); err != nil {
 			return err
 		}
 	}
@@ -263,8 +271,8 @@ func (m *Manager) prepareX509CA(ctx context.Context, slot *x509CASlot) (err erro
 
 	m.c.Log.WithFields(logrus.Fields{
 		telemetry.Slot:       slot.id,
-		telemetry.IssuedAt:   slot.issuedAt,
-		telemetry.Expiration: slot.x509CA.Certificate.NotAfter,
+		telemetry.IssuedAt:   timeField(slot.issuedAt),
+		telemetry.Expiration: timeField(slot.x509CA.Certificate.NotAfter),
 		telemetry.SelfSigned: m.upstreamClient == nil,
 	}).Info("X509 CA prepared")
 	return nil
@@ -273,8 +281,8 @@ func (m *Manager) prepareX509CA(ctx context.Context, slot *x509CASlot) (err erro
 func (m *Manager) activateX509CA() {
 	m.c.Log.WithFields(logrus.Fields{
 		telemetry.Slot:       m.currentX509CA.id,
-		telemetry.IssuedAt:   m.currentX509CA.issuedAt,
-		telemetry.Expiration: m.currentX509CA.x509CA.Certificate.NotAfter,
+		telemetry.IssuedAt:   timeField(m.currentX509CA.issuedAt),
+		telemetry.Expiration: timeField(m.currentX509CA.x509CA.Certificate.NotAfter),
 	}).Info("X509 CA activated")
 	telemetry_server.IncrActivateX509CAManagerCounter(m.c.Metrics)
 
@@ -326,7 +334,7 @@ func (m *Manager) prepareJWTKey(ctx context.Context, slot *jwtKeySlot) (err erro
 	slot.Reset()
 
 	now := m.c.Clock.Now()
-	notAfter := now.Add(m.caTTL)
+	notAfter := now.Add(m.c.CATTL)
 
 	km := m.c.Catalog.GetKeyManager()
 	signer, err := km.GenerateKey(ctx, slot.KmKeyID(), m.c.JWTKeyType)
@@ -357,8 +365,8 @@ func (m *Manager) prepareJWTKey(ctx context.Context, slot *jwtKeySlot) (err erro
 
 	m.c.Log.WithFields(logrus.Fields{
 		telemetry.Slot:       slot.id,
-		telemetry.IssuedAt:   slot.issuedAt,
-		telemetry.Expiration: slot.jwtKey.NotAfter,
+		telemetry.IssuedAt:   timeField(slot.issuedAt),
+		telemetry.Expiration: timeField(slot.jwtKey.NotAfter),
 	}).Info("JWT key prepared")
 	return nil
 }
@@ -411,8 +419,8 @@ func (m *Manager) PublishJWTKey(ctx context.Context, jwtKey *common.PublicKey) (
 func (m *Manager) activateJWTKey() {
 	m.c.Log.WithFields(logrus.Fields{
 		telemetry.Slot:       m.currentJWTKey.id,
-		telemetry.IssuedAt:   m.currentJWTKey.issuedAt,
-		telemetry.Expiration: m.currentJWTKey.jwtKey.NotAfter,
+		telemetry.IssuedAt:   timeField(m.currentJWTKey.issuedAt),
+		telemetry.Expiration: timeField(m.currentJWTKey.jwtKey.NotAfter),
 	}).Info("JWT key activated")
 	telemetry_server.IncrActivateJWTKeyManagerCounter(m.c.Metrics)
 	m.c.CA.SetJWTKey(m.currentJWTKey.jwtKey)
@@ -876,65 +884,6 @@ func (m *Manager) fetchOptionalBundle(ctx context.Context) (*common.Bundle, erro
 	return bundle, nil
 }
 
-func (m *Manager) upstreamSignX509CA(ctx context.Context, signer crypto.Signer) (*X509CA, error) {
-	template, err := m.c.CredBuilder.BuildUpstreamSignedX509CACSR(ctx, credtemplate.UpstreamSignedX509CAParams{
-		PublicKey: signer.Public(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	csr, err := x509.CreateCertificateRequest(rand.Reader, template, signer)
-	if err != nil {
-		return nil, err
-	}
-
-	validator := x509CAValidator{
-		TrustDomain:   m.c.TrustDomain,
-		CredValidator: m.c.CredValidator,
-		Signer:        signer,
-		Clock:         m.c.Clock,
-	}
-
-	caChain, err := m.upstreamClient.MintX509CA(ctx, csr, m.caTTL, validator.ValidateUpstreamX509CA)
-	if err != nil {
-		return nil, err
-	}
-
-	return &X509CA{
-		Signer:        signer,
-		Certificate:   caChain[0],
-		UpstreamChain: caChain,
-	}, nil
-}
-
-func (m *Manager) selfSignX509CA(ctx context.Context, signer crypto.Signer) (*X509CA, error) {
-	template, err := m.c.CredBuilder.BuildSelfSignedX509CATemplate(ctx, credtemplate.SelfSignedX509CAParams{
-		PublicKey: signer.Public(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	cert, err := x509util.CreateCertificate(template, template, signer.Public(), signer)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := m.c.CredValidator.ValidateX509CA(cert); err != nil {
-		return nil, fmt.Errorf("invalid downstream X509 CA: %w", err)
-	}
-
-	if _, err := m.appendBundle(ctx, []*x509.Certificate{cert}, nil); err != nil {
-		return nil, err
-	}
-
-	return &X509CA{
-		Signer:      signer,
-		Certificate: cert,
-	}, nil
-}
-
 type bundleUpdater struct {
 	log           logrus.FieldLogger
 	trustDomainID string
@@ -1070,6 +1019,74 @@ func publicKeyEqual(a, b crypto.PublicKey) bool {
 	return matches
 }
 
+func GenerateServerCACSR(signer crypto.Signer, trustDomain spiffeid.TrustDomain, subject pkix.Name) ([]byte, error) {
+	// SignatureAlgorithm is not provided. The crypto/x509 package will
+	// select the algorithm appropriately based on the signer key type.
+	template := x509.CertificateRequest{
+		Subject: subject,
+		URIs:    []*url.URL{trustDomain.ID().URL()},
+	}
+
+	csr, err := x509.CreateCertificateRequest(rand.Reader, &template, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return csr, nil
+}
+
+func SelfSignX509CA(ctx context.Context, signer crypto.Signer, trustDomain spiffeid.TrustDomain, subject pkix.Name, notBefore, notAfter time.Time) (*X509CA, []*x509.Certificate, error) {
+	serialNumber, err := x509util.NewSerialNumber()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	template, err := CreateServerCATemplate(trustDomain.ID(), signer.Public(), trustDomain, notBefore, notAfter, serialNumber, subject)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	trustBundle := []*x509.Certificate{cert}
+
+	return &X509CA{
+		Signer:      signer,
+		Certificate: cert,
+	}, trustBundle, nil
+}
+
+func UpstreamSignX509CA(ctx context.Context, signer crypto.Signer, trustDomain spiffeid.TrustDomain, subject pkix.Name, upstreamClient *UpstreamClient, caTTL time.Duration) (*X509CA, error) {
+	csr, err := GenerateServerCACSR(signer, trustDomain, subject)
+	if err != nil {
+		return nil, err
+	}
+
+	validator := X509CAValidator{
+		TrustDomain: trustDomain,
+		Signer:      signer,
+	}
+
+	caChain, err := upstreamClient.MintX509CA(ctx, csr, caTTL, validator.ValidateUpstreamX509CA)
+	if err != nil {
+		return nil, err
+	}
+
+	return &X509CA{
+		Signer:        signer,
+		Certificate:   caChain[0],
+		UpstreamChain: caChain,
+	}, nil
+}
+
 // MaxSVIDTTL returns the maximum SVID lifetime that can be guaranteed to not
 // be cut artificially short by a scheduled rotation.
 func MaxSVIDTTL() time.Duration {
@@ -1157,6 +1174,10 @@ func keyIDFromBytes(choices []byte) string {
 		buf.WriteByte(alphabet[int(choice)%len(alphabet)])
 	}
 	return buf.String()
+}
+
+func timeField(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
 
 func containsJwtSigningKeyid(keys []*common.PublicKey, kid string) bool {

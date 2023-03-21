@@ -90,7 +90,8 @@ Bundle endpoint profile   : https_web
     {
       "trust_domain": "foh.test",
       "bundle_endpoint_url": "https://foo.test/endpoint",
-      "https_web": {}
+      "https_web": {},
+      "trust_domain_bundle": null
     }
   ],
   "next_page_token": ""
@@ -127,7 +128,8 @@ Endpoint SPIFFE ID        : spiffe://baz.test/id
     {
       "trust_domain": "foh.test",
       "bundle_endpoint_url": "https://foo.test/endpoint",
-      "https_web": {}
+      "https_web": {},
+      "trust_domain_bundle": null
     },
     {
       "trust_domain": "bar.test",
@@ -148,7 +150,8 @@ Endpoint SPIFFE ID        : spiffe://baz.test/id
       "bundle_endpoint_url": "https://baz.test/endpoint",
       "https_spiffe": {
         "endpoint_spiffe_id": "spiffe://baz.test/id"
-      }
+      },
+      "trust_domain_bundle": null
     }
   ],
   "next_page_token": ""

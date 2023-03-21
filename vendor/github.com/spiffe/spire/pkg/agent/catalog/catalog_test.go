@@ -17,25 +17,24 @@ func TestJoinTokenNodeAttestorCannotBeOverriden(t *testing.T) {
 	minimalConfig := func() catalog.Config {
 		return catalog.Config{
 			Log: log,
-			PluginConfigs: catalog.PluginConfigs{
-				{
-					Type: "KeyManager",
-					Name: "memory",
+			PluginConfig: catalog.HCLPluginConfigMap{
+				"KeyManager": {
+					"memory": {},
 				},
-				{
-					Type: "NodeAttestor",
-					Name: "join_token",
+				"NodeAttestor": {
+					"join_token": {},
 				},
-				{
-					Type: "WorkloadAttestor",
-					Name: "docker",
+				"WorkloadAttestor": {
+					"docker": {},
 				},
 			},
 		}
 	}
 
 	config := minimalConfig()
-	config.PluginConfigs[1].Path = filepath.Join(dir, "does-not-exist")
+	config.PluginConfig["NodeAttestor"]["join_token"] = catalog.HCLPluginConfig{
+		PluginCmd: filepath.Join(dir, "does-not-exist"),
+	}
 
 	repo, err := catalog.Load(context.Background(), config)
 	if repo != nil {
