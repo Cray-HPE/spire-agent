@@ -29,9 +29,6 @@ def isStable = env.TAG_NAME != null ? true : false
 def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle'
 def sleVersion = '15.4'
 
-def spireURL = 'https://api.github.com/repos/Cray-HPE/spire'
-def spireVersion = 'v1.6.1'
-
 pipeline {
 
     agent {
@@ -47,10 +44,8 @@ pipeline {
 
     environment {
         NAME = getRepoName()
-        GITHUB_TOKEN = getGitHubToken()
-        SPIRE_URL = "${spireURL}"
-        SPIRE_VERSION = "${spireVersion}"
-        VERSION = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | sed 's/^v//'").trim()
+        SPIRE_VERSION = sh(returnStdout: true, script: "git vendor list spire | grep ref | awk '{print \$NF}'").trim()
+        BUILD = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | sed 's/^v//'").trim()
     }
 
     stages {
@@ -62,14 +57,19 @@ pipeline {
                 axes {
                     axis {
                         name 'ARCH'
-                        values 'x86_64', 'aarch64'
+                        values 'aarch64', 'x86_64'
                     }
-                }
 
+                    axis {
+                        name 'sleVersion'
+                        values '15.4'
+                    }
+
+                }
                 agent {
                     node {
                         label "metal-gcp-builder"
-                        customWorkspace "${env.WORKSPACE}/${ARCH}"
+                        customWorkspace "${env.WORKSPACE}/${ARCH}/${SLEVERSION}"
                     }
                 }
 
@@ -83,9 +83,9 @@ pipeline {
                             }
                         }
                         steps {
-                                runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
-                                sh "git update-index --assume-unchanged ${env.NAME}.spec"
-                                sh "make prepare"
+                            runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
+                            sh "git update-index --assume-unchanged ${env.NAME}.spec"
+                            sh "make prepare"
                         }
                     }
 

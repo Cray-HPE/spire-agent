@@ -25,13 +25,25 @@ Name: %(echo $NAME)
 License: GPLv2
 Summary: spire-agent binary
 Version: %(echo $SPIRE_VERSION | sed 's/^v//')
-Release: %(echo $VERSION)
+Release: %(echo $BUILD)
 Source: %{name}-%{version}.tar.bz2
 Group: Applications/System
 Vendor: Hewlett Packard Enterprise Company
 %systemd_requires
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
 Requires(postun): /usr/sbin/userdel
+
+%ifarch %ix86
+    %global GOARCH 386
+%endif
+%ifarch aarch64
+    %global GOARCH arm64
+%endif
+%ifarch x86_64
+    %global GOARCH amd64
+%endif
+
+%define vendor_dir vendor/github.com/spiffe/spire
 
 %define arch %{arch}
 %define spire_binary bin/spire-agent
@@ -46,10 +58,12 @@ SPIFFE SPIRE Agent binary distribution.
 %setup -q
 
 %build
+cd %{vendor_dir}
+make build
 
 %install
 mkdir -p %{buildroot}%{spire_agent_dir}/{data,conf,bundle}
-install -D -m 0755 bin/spire-agent %{buildroot}%{_bindir}/spire-agent
+install -D -m 0755 %{vendor_dir}/bin/spire-agent %{buildroot}%{_bindir}/spire-agent
 install -D -m 0755 conf/configure-spire.sh %{buildroot}%{_bindir}/configure-spire.sh
 install -D -m 0644 conf/spire-agent.service %{buildroot}%{_unitdir}/spire-agent.service
 
