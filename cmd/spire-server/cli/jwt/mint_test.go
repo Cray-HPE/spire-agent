@@ -32,10 +32,12 @@ XM13o+VSA0tcZteyTvbOdIQNVnKhRANCAAT4dPIORBjghpL5O4h+9kyzZZUAFV9F
 qNV3lKIL59N7G2B4ojbhfSNneSIIpP448uPxUnaunaQZ+/m7+x9oobIp
 -----END PRIVATE KEY-----
 `))
-	availableFormats = []string{"pretty", "json"}
-	expectedUsage    = `Usage of jwt mint:
+)
+
+var (
+	expectedUsage = `Usage of jwt mint:
   -audience value
-    	Audience claim that will be included in the SVID. Can be used more than once.` + common.AddrOutputUsage +
+    	Audience claim that will be included in the SVID. Can be used more than once.` + common.AddrUsage +
 		`  -spiffeID string
     	SPIFFE ID of the JWT-SVID
   -ttl duration
@@ -104,25 +106,23 @@ func TestMintRun(t *testing.T) {
 		extraArgs []string
 
 		// results
-		code      int
-		stdin     string
-		expStderr string
+		code   int
+		stdin  string
+		stderr string
 
 		noRequestExpected bool
-		expStdoutPretty   string
-		expStdoutJSON     string
 		resp              *svidv1.MintJWTSVIDResponse
 	}{
 		{
 			name:              "missing spiffeID flag",
 			code:              1,
-			expStderr:         "Error: spiffeID must be specified\n",
+			stderr:            "Error: spiffeID must be specified\n",
 			noRequestExpected: true,
 		},
 		{
 			name:              "invalid flag",
 			code:              1,
-			expStderr:         fmt.Sprintf("flag provided but not defined: -bad\n%s", expectedUsage),
+			stderr:            fmt.Sprintf("flag provided but not defined: -bad\n%s", expectedUsage),
 			extraArgs:         []string{"-bad", "flag"},
 			noRequestExpected: true,
 		},
@@ -133,9 +133,9 @@ func TestMintRun(t *testing.T) {
 				TrustDomain: "domain.test",
 				Path:        "/workload",
 			},
-			audience:  []string{"AUDIENCE"},
-			code:      1,
-			expStderr: "Error: unable to mint SVID: rpc error: code = Unknown desc = response not configured in test\n",
+			audience: []string{"AUDIENCE"},
+			code:     1,
+			stderr:   "Error: unable to mint SVID: rpc error: code = Unknown desc = response not configured in test\n",
 		},
 		{
 			name:     "response missing token",
@@ -144,10 +144,10 @@ func TestMintRun(t *testing.T) {
 				TrustDomain: "domain.test",
 				Path:        "/workload",
 			},
-			audience:  []string{"AUDIENCE"},
-			code:      1,
-			expStderr: "Error: server response missing token\n",
-			resp:      &svidv1.MintJWTSVIDResponse{Svid: &types.JWTSVID{}},
+			audience: []string{"AUDIENCE"},
+			code:     1,
+			stderr:   "Error: server response missing token\n",
+			resp:     &svidv1.MintJWTSVIDResponse{Svid: &types.JWTSVID{}},
 		},
 		{
 			name:     "missing audience",
@@ -157,7 +157,7 @@ func TestMintRun(t *testing.T) {
 				Path:        "/workload",
 			},
 			code:              1,
-			expStderr:         "Error: at least one audience must be specified\n",
+			stderr:            "Error: at least one audience must be specified\n",
 			audience:          []string{},
 			noRequestExpected: true,
 		},
@@ -169,7 +169,7 @@ func TestMintRun(t *testing.T) {
 				Path:        "/workload",
 			},
 			code:              1,
-			expStderr:         "Error: scheme is missing or invalid\n",
+			stderr:            "Error: scheme is missing or invalid\n",
 			audience:          []string{"AUDIENCE"},
 			noRequestExpected: true,
 		},
@@ -185,27 +185,9 @@ func TestMintRun(t *testing.T) {
 			resp: &svidv1.MintJWTSVIDResponse{
 				Svid: &types.JWTSVID{
 					Token: token,
-					Id: &types.SPIFFEID{
-						TrustDomain: "domain.test",
-						Path:        "/workload",
-					},
-					ExpiresAt: 1628600000,
-					IssuedAt:  1628500000,
 				},
 			},
-			expStdoutPretty: token + "\n",
-			expStdoutJSON: fmt.Sprintf(`{
-  "svid": {
-    "token": "%s",
-    "id": {
-	  "trust_domain": "domain.test",
-	  "path": "/workload"
-	},
-    "expires_at": "1628600000",
-    "issued_at": "1628500000"
-  }
-}`, token)},
-
+		},
 		{
 			name:     "write on invalid path",
 			spiffeID: "spiffe://domain.test/workload",
@@ -220,10 +202,8 @@ func TestMintRun(t *testing.T) {
 					Token: token,
 				},
 			},
-			write:           "/",
-			expStdoutPretty: token + "\n",
-			expStdoutJSON:   `{}`,
-			expStderr:       "Error: unable to write token",
+			write:  "/",
+			stderr: "Error: unable to write token",
 		},
 		{
 			name:     "malformed token",
@@ -239,15 +219,7 @@ func TestMintRun(t *testing.T) {
 					Token: "malformed token",
 				},
 			},
-			expStdoutPretty: "malformed token\n",
-			expStdoutJSON: `{
-  "svid": {
-    "token": "malformed token",
-    "expires_at": "0",
-    "issued_at": "0"
-  }
-}`,
-			expStderr: "Unable to determine JWT-SVID lifetime: square/go-jose: compact JWS format must have three parts\n",
+			stderr: "Unable to determine JWT-SVID lifetime: square/go-jose: compact JWS format must have three parts\n",
 		},
 		{
 			name:     "expired token",
@@ -261,27 +233,9 @@ func TestMintRun(t *testing.T) {
 			resp: &svidv1.MintJWTSVIDResponse{
 				Svid: &types.JWTSVID{
 					Token: expiredToken,
-					Id: &types.SPIFFEID{
-						TrustDomain: "domain.test",
-						Path:        "/workload",
-					},
-					ExpiresAt: 1628500000,
-					IssuedAt:  1628600000,
 				},
 			},
-			expStdoutPretty: expiredToken + "\n",
-			expStdoutJSON: fmt.Sprintf(`{
-  "svid": {
-    "token": "%s",
-    "id": {
-	  "trust_domain": "domain.test",
-	  "path": "/workload"
-	},
-    "expires_at": "1628500000",
-    "issued_at": "1628600000"
-  }
-}`, expiredToken),
-			expStderr: fmt.Sprintf("JWT-SVID lifetime was capped shorter than specified ttl; expires %q\n", expiredAt.UTC().Format(time.RFC3339)),
+			stderr: fmt.Sprintf("JWT-SVID lifetime was capped shorter than specified ttl; expires %q\n", expiredAt.UTC().Format(time.RFC3339)),
 		},
 		{
 			name:     "success with ttl and extra audience, output to file",
@@ -299,73 +253,68 @@ func TestMintRun(t *testing.T) {
 					Token: token,
 				},
 			},
-			expStdoutPretty: token + "\n",
-			expStdoutJSON:   `{}`,
-			expStderr:       fmt.Sprintf("JWT-SVID lifetime was capped shorter than specified ttl; expires %q\n", expiry.UTC().Format(time.RFC3339)),
+			stderr: fmt.Sprintf("JWT-SVID lifetime was capped shorter than specified ttl; expires %q\n", expiry.UTC().Format(time.RFC3339)),
 		},
 	}
 
 	for _, testCase := range testCases {
 		tt := testCase
-		for _, format := range availableFormats {
-			t.Run(fmt.Sprintf("%s using %s format", tt.name, format), func(t *testing.T) {
-				server.setMintJWTSVIDResponse(tt.resp)
-				server.resetMintJWTSVIDRequest()
+		t.Run(tt.name, func(t *testing.T) {
+			server.setMintJWTSVIDResponse(tt.resp)
+			server.resetMintJWTSVIDRequest()
 
-				stdout := new(bytes.Buffer)
-				stderr := new(bytes.Buffer)
-				cmd := newMintCommand(&common_cli.Env{
-					Stdin:   strings.NewReader(tt.stdin),
-					Stdout:  stdout,
-					Stderr:  stderr,
-					BaseDir: dir,
-				})
-
-				args := []string{common.AddrArg, common.GetAddr(addr)}
-				if tt.spiffeID != "" {
-					args = append(args, "-spiffeID", tt.spiffeID)
-				}
-				if tt.ttl != 0 {
-					args = append(args, "-ttl", fmt.Sprint(tt.ttl))
-				}
-				if tt.write != "" {
-					args = append(args, "-write", tt.write)
-				}
-				for _, audience := range tt.audience {
-					args = append(args, "-audience", audience)
-				}
-				args = append(args, tt.extraArgs...)
-				args = append(args, "-output", format)
-
-				code := cmd.Run(args)
-
-				assert.Equal(t, tt.code, code, "exit code does not match")
-				assert.Contains(t, stderr.String(), tt.expStderr, "stderr does not match")
-
-				req := server.lastMintJWTSVIDRequest()
-				if tt.noRequestExpected {
-					assert.Nil(t, req)
-					return
-				}
-
-				if assert.NotNil(t, req) {
-					assert.Equal(t, tt.expectID, req.Id)
-					assert.Equal(t, int32(tt.ttl/time.Second), req.Ttl)
-					assert.Equal(t, tt.audience, req.Audience)
-				}
-
-				// assert output file contents
-				if code == 0 {
-					if tt.write != "" {
-						assert.Equal(t, fmt.Sprintf("JWT-SVID written to %s\n", svidPath),
-							stdout.String(), "stdout does not write output path")
-						assertFileData(t, filepath.Join(dir, tt.write), tt.resp.Svid.Token)
-					} else {
-						requireOutputBasedOnFormat(t, format, stdout.String(), tt.expStdoutPretty, tt.expStdoutJSON)
-					}
-				}
+			stdout := new(bytes.Buffer)
+			stderr := new(bytes.Buffer)
+			cmd := newMintCommand(&common_cli.Env{
+				Stdin:   strings.NewReader(tt.stdin),
+				Stdout:  stdout,
+				Stderr:  stderr,
+				BaseDir: dir,
 			})
-		}
+
+			args := []string{common.AddrArg, common.GetAddr(addr)}
+			if tt.spiffeID != "" {
+				args = append(args, "-spiffeID", tt.spiffeID)
+			}
+			if tt.ttl != 0 {
+				args = append(args, "-ttl", fmt.Sprint(tt.ttl))
+			}
+			if tt.write != "" {
+				args = append(args, "-write", tt.write)
+			}
+			for _, audience := range tt.audience {
+				args = append(args, "-audience", audience)
+			}
+			args = append(args, tt.extraArgs...)
+
+			code := cmd.Run(args)
+
+			assert.Equal(t, tt.code, code, "exit code does not match")
+			assert.Contains(t, stderr.String(), tt.stderr, "stderr does not match")
+
+			req := server.lastMintJWTSVIDRequest()
+			if tt.noRequestExpected {
+				assert.Nil(t, req)
+				return
+			}
+
+			if assert.NotNil(t, req) {
+				assert.Equal(t, tt.expectID, req.Id)
+				assert.Equal(t, int32(tt.ttl/time.Second), req.Ttl)
+				assert.Equal(t, tt.audience, req.Audience)
+			}
+
+			// assert output file contents
+			if code == 0 {
+				if tt.write != "" {
+					assert.Equal(t, fmt.Sprintf("JWT-SVID written to %s\n", svidPath),
+						stdout.String(), "stdout does not write output path")
+					assertFileData(t, filepath.Join(dir, tt.write), tt.resp.Svid.Token)
+				} else {
+					assert.Equal(t, stdout.String(), tt.resp.Svid.Token+"\n")
+				}
+			}
+		})
 	}
 }
 
@@ -410,18 +359,5 @@ func assertFileData(t *testing.T, path string, expectedData string) {
 	b, err := os.ReadFile(path)
 	if assert.NoError(t, err) {
 		assert.Equal(t, expectedData, string(b))
-	}
-}
-
-func requireOutputBasedOnFormat(t *testing.T, format, stdoutString string, expectedStdoutPretty, expectedStdoutJSON string) {
-	switch format {
-	case "pretty":
-		require.Contains(t, stdoutString, expectedStdoutPretty)
-	case "json":
-		if expectedStdoutJSON != "" {
-			require.JSONEq(t, expectedStdoutJSON, stdoutString)
-		} else {
-			require.Empty(t, stdoutString)
-		}
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -17,11 +16,6 @@ import (
 	"github.com/spiffe/spire/pkg/common/namedpipe"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-)
-
-var (
-	mtx sync.Mutex                                        // used to synchronize access of rnd
-	rnd = rand.New(rand.NewSource(time.Now().UnixNano())) // nolint: gosec // used for testing only
 )
 
 func StartWorkloadAPI(t *testing.T, server workload.SpiffeWorkloadAPIServer) net.Addr {
@@ -57,12 +51,9 @@ func ServeGRPCServerOnRandPipeName(t *testing.T, server *grpc.Server) net.Addr {
 }
 
 func GetRandNamedPipeAddr() net.Addr {
-	return namedpipe.AddrFromName(fmt.Sprintf("spire-test-%x", randUint64()))
+	return namedpipe.AddrFromName(fmt.Sprintf("spire-test-%x", rand.Uint64())) // nolint: gosec // used for testing only
 }
 
-func randUint64() uint64 {
-	mtx.Lock()
-	defer mtx.Unlock()
-
-	return rnd.Uint64()
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }

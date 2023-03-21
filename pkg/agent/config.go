@@ -43,7 +43,7 @@ type Config struct {
 	HealthChecks health.Config
 
 	// Configurations for agent plugins
-	PluginConfigs catalog.PluginConfigs
+	PluginConfigs catalog.HCLPluginConfigMap
 
 	Log logrus.FieldLogger
 

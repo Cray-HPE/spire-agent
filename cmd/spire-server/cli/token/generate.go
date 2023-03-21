@@ -7,21 +7,18 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
-	prototypes "github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/spiffe/spire/cmd/spire-server/util"
-
-	commoncli "github.com/spiffe/spire/pkg/common/cli"
-	"github.com/spiffe/spire/pkg/common/cliprinter"
+	common_cli "github.com/spiffe/spire/pkg/common/cli"
 
 	"golang.org/x/net/context"
 )
 
 func NewGenerateCommand() cli.Command {
-	return newGenerateCommand(commoncli.DefaultEnv)
+	return newGenerateCommand(common_cli.DefaultEnv)
 }
 
-func newGenerateCommand(env *commoncli.Env) cli.Command {
-	return util.AdaptCommand(env, &generateCommand{env: env})
+func newGenerateCommand(env *common_cli.Env) cli.Command {
+	return util.AdaptCommand(env, new(generateCommand))
 }
 
 type generateCommand struct {
@@ -29,9 +26,7 @@ type generateCommand struct {
 	SpiffeID string
 
 	// Token TTL in seconds
-	TTL     int
-	env     *commoncli.Env
-	printer cliprinter.Printer
+	TTL int
 }
 
 func (g *generateCommand) Name() string {
@@ -42,7 +37,7 @@ func (g *generateCommand) Synopsis() string {
 	return "Generates a join token"
 }
 
-func (g *generateCommand) Run(ctx context.Context, env *commoncli.Env, serverClient util.ServerClient) error {
+func (g *generateCommand) Run(ctx context.Context, env *common_cli.Env, serverClient util.ServerClient) error {
 	id, err := getID(g.SpiffeID)
 	if err != nil {
 		return err
@@ -56,7 +51,17 @@ func (g *generateCommand) Run(ctx context.Context, env *commoncli.Env, serverCli
 	if err != nil {
 		return err
 	}
-	return g.printer.PrintProto(resp)
+
+	if err := env.Printf("Token: %s\n", resp.Value); err != nil {
+		return err
+	}
+
+	if g.SpiffeID == "" {
+		env.Printf("Warning: Missing SPIFFE ID.\n")
+		return nil
+	}
+
+	return nil
 }
 
 func getID(spiffeID string) (*types.SPIFFEID, error) {
@@ -77,23 +82,4 @@ func getID(spiffeID string) (*types.SPIFFEID, error) {
 func (g *generateCommand) AppendFlags(fs *flag.FlagSet) {
 	fs.IntVar(&g.TTL, "ttl", 600, "Token TTL in seconds")
 	fs.StringVar(&g.SpiffeID, "spiffeID", "", "Additional SPIFFE ID to assign the token owner (optional)")
-	cliprinter.AppendFlagWithCustomPretty(&g.printer, fs, g.env, g.prettyPrintGenerate)
-}
-
-func (g *generateCommand) prettyPrintGenerate(env *commoncli.Env, results ...interface{}) error {
-	generateResp, ok := results[0].(*prototypes.JoinToken)
-	if !ok {
-		return cliprinter.ErrInternalCustomPrettyFunc
-	}
-
-	if err := env.Printf("Token: %s\n", generateResp.Value); err != nil {
-		return err
-	}
-
-	if g.SpiffeID == "" {
-		env.Printf("Warning: Missing SPIFFE ID.\n")
-		return nil
-	}
-
-	return nil
 }

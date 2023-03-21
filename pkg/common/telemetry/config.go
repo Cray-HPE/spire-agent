@@ -49,5 +49,7 @@ type M3Config struct {
 }
 
 type InMem struct {
-	UnusedKeys []string `hcl:",unusedKeys"`
+	// TODO: remove in SPIRE 1.6.0
+	DeprecatedEnabled *bool    `hcl:"enabled"`
+	UnusedKeys        []string `hcl:",unusedKeys"`
 }

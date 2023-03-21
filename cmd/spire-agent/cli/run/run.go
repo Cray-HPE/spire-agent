@@ -20,14 +20,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl"
-	"github.com/hashicorp/hcl/hcl/ast"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/cli"
 	"github.com/sirupsen/logrus"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/spire/pkg/agent"
 	"github.com/spiffe/spire/pkg/agent/workloadkey"
-	"github.com/spiffe/spire/pkg/common/bundleutil"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	common_cli "github.com/spiffe/spire/pkg/common/cli"
 	"github.com/spiffe/spire/pkg/common/fflag"
@@ -50,18 +47,15 @@ const (
 	defaultDefaultBundleName           = "ROOTCA"
 	defaultDefaultAllBundlesName       = "ALL"
 	defaultDisableSPIFFECertValidation = false
-
-	bundleFormatPEM    = "pem"
-	bundleFormatSPIFFE = "spiffe"
 )
 
 // Config contains all available configurables, arranged by section
 type Config struct {
-	Agent        *agentConfig         `hcl:"agent"`
-	Plugins      ast.Node             `hcl:"plugins"`
-	Telemetry    telemetry.FileConfig `hcl:"telemetry"`
-	HealthChecks health.Config        `hcl:"health_checks"`
-	UnusedKeys   []string             `hcl:",unusedKeys"`
+	Agent        *agentConfig                `hcl:"agent"`
+	Plugins      *catalog.HCLPluginConfigMap `hcl:"plugins"`
+	Telemetry    telemetry.FileConfig        `hcl:"telemetry"`
+	HealthChecks health.Config               `hcl:"health_checks"`
+	UnusedKeys   []string                    `hcl:",unusedKeys"`
 }
 
 type agentConfig struct {
@@ -77,7 +71,6 @@ type agentConfig struct {
 	ServerPort                    int       `hcl:"server_port"`
 	SocketPath                    string    `hcl:"socket_path"`
 	WorkloadX509SVIDKeyType       string    `hcl:"workload_x509_svid_key_type"`
-	TrustBundleFormat             string    `hcl:"trust_bundle_format"`
 	TrustBundlePath               string    `hcl:"trust_bundle_path"`
 	TrustBundleURL                string    `hcl:"trust_bundle_url"`
 	TrustDomain                   string    `hcl:"trust_domain"`
@@ -242,10 +235,6 @@ func (c *agentConfig) validate() error {
 		return errors.New("only one of trust_bundle_url or trust_bundle_path can be specified, not both")
 	}
 
-	if c.TrustBundleFormat != bundleFormatPEM && c.TrustBundleFormat != bundleFormatSPIFFE {
-		return fmt.Errorf("invalid value for trust_bundle_format, expected %q or %q", bundleFormatPEM, bundleFormatSPIFFE)
-	}
-
 	if c.TrustBundleURL != "" {
 		u, err := url.Parse(c.TrustBundleURL)
 		if err != nil {
@@ -311,7 +300,6 @@ func parseFlags(name string, args []string, output io.Writer) (*agentConfig, err
 	flags.StringVar(&c.TrustDomain, "trustDomain", "", "The trust domain that this agent belongs to")
 	flags.StringVar(&c.TrustBundlePath, "trustBundle", "", "Path to the SPIRE server CA bundle")
 	flags.StringVar(&c.TrustBundleURL, "trustBundleUrl", "", "URL to download the SPIRE server CA bundle")
-	flags.StringVar(&c.TrustBundleFormat, "trustBundleFormat", "", fmt.Sprintf("Format of the bootstrap trust bundle, %q or %q", bundleFormatPEM, bundleFormatSPIFFE))
 	flags.BoolVar(&c.AllowUnauthenticatedVerifiers, "allowUnauthenticatedVerifiers", false, "If true, the agent permits the retrieval of X509 certificate bundles by unregistered clients")
 	flags.BoolVar(&c.InsecureBootstrap, "insecureBootstrap", false, "If true, the agent bootstraps without verifying the server's identity")
 	flags.BoolVar(&c.ExpandEnv, "expandEnv", false, "Expand environment variables in SPIRE config file")
@@ -348,26 +336,7 @@ func mergeInput(fileInput *Config, cliInput *agentConfig) (*Config, error) {
 	return c, nil
 }
 
-func parseTrustBundle(bundleBytes []byte, trustBundleContentType string) ([]*x509.Certificate, error) {
-	switch trustBundleContentType {
-	case bundleFormatPEM:
-		bundle, err := pemutil.ParseCertificates(bundleBytes)
-		if err != nil {
-			return nil, err
-		}
-		return bundle, nil
-	case bundleFormatSPIFFE:
-		bundle, err := bundleutil.Unmarshal(spiffeid.TrustDomain{}, bundleBytes)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse SPIFFE trust bundle: %w", err)
-		}
-		return bundle.RootCAs(), nil
-	}
-
-	return nil, fmt.Errorf("unknown trust bundle format: %s", trustBundleContentType)
-}
-
-func downloadTrustBundle(trustBundleURL string) ([]byte, error) {
+func downloadTrustBundle(trustBundleURL string) ([]*x509.Certificate, error) {
 	// Download the trust bundle URL from the user specified URL
 	// We use gosec -- the annotation below will disable a security check that URLs are not tainted
 	/* #nosec G107 */
@@ -386,7 +355,12 @@ func downloadTrustBundle(trustBundleURL string) ([]byte, error) {
 		return nil, fmt.Errorf("unable to read from trust bundle URL %s: %w", trustBundleURL, err)
 	}
 
-	return pemBytes, nil
+	bundle, err := pemutil.ParseCertificates(pemBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return bundle, nil
 }
 
 func setupTrustBundle(ac *agent.Config, c *Config) error {
@@ -394,37 +368,20 @@ func setupTrustBundle(ac *agent.Config, c *Config) error {
 	// from disk if TrustBundlePath is set
 	ac.InsecureBootstrap = c.Agent.InsecureBootstrap
 
-	var bundleBytes []byte
-	var err error
-
 	switch {
 	case c.Agent.TrustBundleURL != "":
-		bundleBytes, err = downloadTrustBundle(c.Agent.TrustBundleURL)
+		bundle, err := downloadTrustBundle(c.Agent.TrustBundleURL)
 		if err != nil {
 			return err
 		}
+		ac.TrustBundle = bundle
 	case c.Agent.TrustBundlePath != "":
-		bundleBytes, err = loadTrustBundle(c.Agent.TrustBundlePath)
+		bundle, err := parseTrustBundle(c.Agent.TrustBundlePath)
 		if err != nil {
 			return fmt.Errorf("could not parse trust bundle: %w", err)
 		}
-	default:
-		// If InsecureBootstrap is configured, the bundle is not required
-		if ac.InsecureBootstrap {
-			return nil
-		}
+		ac.TrustBundle = bundle
 	}
-
-	bundle, err := parseTrustBundle(bundleBytes, c.Agent.TrustBundleFormat)
-	if err != nil {
-		return err
-	}
-
-	if len(bundle) == 0 {
-		return errors.New("no certificates found in trust bundle")
-	}
-
-	ac.TrustBundle = bundle
 
 	return nil
 }
@@ -523,11 +480,7 @@ func NewAgentConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool)
 
 	ac.AllowedForeignJWTClaims = c.Agent.AllowedForeignJWTClaims
 
-	ac.PluginConfigs, err = catalog.PluginConfigsFromHCLNode(c.Plugins)
-	if err != nil {
-		return nil, err
-	}
-
+	ac.PluginConfigs = *c.Plugins
 	ac.Telemetry = c.Telemetry
 	ac.HealthChecks = c.HealthChecks
 
@@ -630,10 +583,9 @@ func checkForUnknownConfig(c *Config, l logrus.FieldLogger) (err error) {
 func defaultConfig() *Config {
 	c := &Config{
 		Agent: &agentConfig{
-			DataDir:           defaultDataDir,
-			LogLevel:          defaultLogLevel,
-			LogFormat:         log.DefaultFormat,
-			TrustBundleFormat: bundleFormatPEM,
+			DataDir:   defaultDataDir,
+			LogLevel:  defaultLogLevel,
+			LogFormat: log.DefaultFormat,
 			SDS: sdsConfig{
 				DefaultBundleName:           defaultDefaultBundleName,
 				DefaultSVIDName:             defaultDefaultSVIDName,
@@ -647,11 +599,15 @@ func defaultConfig() *Config {
 	return c
 }
 
-func loadTrustBundle(path string) ([]byte, error) {
-	bundleBytes, err := os.ReadFile(path)
+func parseTrustBundle(path string) ([]*x509.Certificate, error) {
+	bundle, err := pemutil.LoadCertificates(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return bundleBytes, nil
+	if len(bundle) == 0 {
+		return nil, errors.New("no certificates found in trust bundle")
+	}
+
+	return bundle, nil
 }

@@ -24,7 +24,6 @@ import (
 	ds_sql "github.com/spiffe/spire/pkg/server/datastore/sqlstore"
 	"github.com/spiffe/spire/pkg/server/hostservice/agentstore"
 	"github.com/spiffe/spire/pkg/server/hostservice/identityprovider"
-	"github.com/spiffe/spire/pkg/server/plugin/credentialcomposer"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
 	"github.com/spiffe/spire/pkg/server/plugin/nodeattestor"
 	"github.com/spiffe/spire/pkg/server/plugin/nodeattestor/jointoken"
@@ -33,16 +32,14 @@ import (
 )
 
 const (
-	credentialComposerType = "CredentialComposer" //nolint: gosec // this is not a hardcoded credential...
-	dataStoreType          = "DataStore"
-	keyManagerType         = "KeyManager"
-	nodeAttestorType       = "NodeAttestor"
-	notifierType           = "Notifier"
-	upstreamAuthorityType  = "UpstreamAuthority"
+	dataStoreType         = "DataStore"
+	keyManagerType        = "KeyManager"
+	nodeAttestorType      = "NodeAttestor"
+	notifierType          = "Notifier"
+	upstreamAuthorityType = "UpstreamAuthority"
 )
 
 type Catalog interface {
-	GetCredentialComposers() []credentialcomposer.CredentialComposer
 	GetDataStore() datastore.DataStore
 	GetNodeAttestorNamed(name string) (nodeattestor.NodeAttestor, bool)
 	GetKeyManager() keymanager.KeyManager
@@ -50,12 +47,14 @@ type Catalog interface {
 	GetUpstreamAuthority() (upstreamauthority.UpstreamAuthority, bool)
 }
 
-type PluginConfigs = catalog.PluginConfigs
+type HCLPluginConfigMap = catalog.HCLPluginConfigMap
+
+type HCLPluginConfig = catalog.HCLPluginConfig
 
 type Config struct {
-	Log           logrus.FieldLogger
-	TrustDomain   spiffeid.TrustDomain
-	PluginConfigs PluginConfigs
+	Log          logrus.FieldLogger
+	TrustDomain  spiffeid.TrustDomain
+	PluginConfig HCLPluginConfigMap
 
 	Metrics          telemetry.Metrics
 	IdentityProvider *identityprovider.IdentityProvider
@@ -66,7 +65,6 @@ type Config struct {
 type datastoreRepository struct{ datastore.Repository }
 
 type Repository struct {
-	credentialComposerRepository
 	datastoreRepository
 	keyManagerRepository
 	nodeAttestorRepository
@@ -80,11 +78,10 @@ type Repository struct {
 
 func (repo *Repository) Plugins() map[string]catalog.PluginRepo {
 	return map[string]catalog.PluginRepo{
-		credentialComposerType: &repo.credentialComposerRepository,
-		keyManagerType:         &repo.keyManagerRepository,
-		nodeAttestorType:       &repo.nodeAttestorRepository,
-		notifierType:           &repo.notifierRepository,
-		upstreamAuthorityType:  &repo.upstreamAuthorityRepository,
+		keyManagerType:        &repo.keyManagerRepository,
+		nodeAttestorType:      &repo.nodeAttestorRepository,
+		notifierType:          &repo.notifierRepository,
+		upstreamAuthorityType: &repo.upstreamAuthorityRepository,
 	}
 }
 
@@ -115,7 +112,7 @@ func (repo *Repository) Close() {
 }
 
 func Load(ctx context.Context, config Config) (_ *Repository, err error) {
-	if c, ok := config.PluginConfigs.Find(nodeAttestorType, jointoken.PluginName); ok && c.IsEnabled() && c.IsExternal() {
+	if c, ok := config.PluginConfig[nodeAttestorType][jointoken.PluginName]; ok && c.IsEnabled() && c.IsExternal() {
 		return nil, fmt.Errorf("the built-in join_token node attestor cannot be overridden by an external plugin")
 	}
 
@@ -130,12 +127,18 @@ func Load(ctx context.Context, config Config) (_ *Repository, err error) {
 
 	// Strip out the Datastore plugin configuration and load the SQL plugin
 	// directly. This allows us to bypass gRPC and get rid of response limits.
-	dataStoreConfigs, pluginConfigs := config.PluginConfigs.FilterByType(dataStoreType)
-	sqlDataStore, err := loadSQLDataStore(ctx, config.Log, dataStoreConfigs)
+	dataStoreConfig := config.PluginConfig[dataStoreType]
+	delete(config.PluginConfig, dataStoreType)
+	sqlDataStore, err := loadSQLDataStore(ctx, config.Log, dataStoreConfig)
 	if err != nil {
 		return nil, err
 	}
 	repo.dataStoreCloser = sqlDataStore
+
+	pluginConfigs, err := catalog.PluginConfigsFromHCL(config.PluginConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	repo.catalogCloser, err = catalog.Load(ctx, catalog.Config{
 		Log: config.Log,
@@ -167,20 +170,26 @@ func Load(ctx context.Context, config Config) (_ *Repository, err error) {
 	return repo, nil
 }
 
-func loadSQLDataStore(ctx context.Context, log logrus.FieldLogger, datastoreConfigs catalog.PluginConfigs) (*ds_sql.Plugin, error) {
+func loadSQLDataStore(ctx context.Context, log logrus.FieldLogger, datastoreConfig map[string]catalog.HCLPluginConfig) (*ds_sql.Plugin, error) {
 	switch {
-	case len(datastoreConfigs) == 0:
+	case len(datastoreConfig) == 0:
 		return nil, errors.New("expecting a DataStore plugin")
-	case len(datastoreConfigs) > 1:
+	case len(datastoreConfig) > 1:
 		return nil, errors.New("only one DataStore plugin is allowed")
 	}
 
-	sqlConfig := datastoreConfigs[0]
-
-	if sqlConfig.Name != ds_sql.PluginName {
+	sqlHCLConfig, ok := datastoreConfig[ds_sql.PluginName]
+	if !ok {
 		return nil, fmt.Errorf("pluggability for the DataStore is deprecated; only the built-in %q plugin is supported", ds_sql.PluginName)
 	}
-	if sqlConfig.IsExternal() {
+
+	sqlConfig, err := catalog.PluginConfigFromHCL(dataStoreType, ds_sql.PluginName, sqlHCLConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Is the plugin external?
+	if sqlConfig.Path != "" {
 		return nil, fmt.Errorf("pluggability for the DataStore is deprecated; only the built-in %q plugin is supported", ds_sql.PluginName)
 	}
 
