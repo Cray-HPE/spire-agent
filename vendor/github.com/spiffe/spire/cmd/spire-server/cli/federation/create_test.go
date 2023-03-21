@@ -224,7 +224,8 @@ Endpoint SPIFFE ID        : spiffe://other.org/bundle
         "bundle_endpoint_url": "https://td-2.org/bundle",
         "https_spiffe": {
           "endpoint_spiffe_id": "spiffe://other.org/bundle"
-        }
+        },
+        "trust_domain_bundle": null
       }
     }
   ]
@@ -308,7 +309,8 @@ Bundle endpoint profile   : https_web
       "federation_relationship": {
         "trust_domain": "td-1.org",
         "bundle_endpoint_url": "https://td-1.org/bundle",
-        "https_web": {}
+        "https_web": {},
+        "trust_domain_bundle": null
       }
     }
   ]
@@ -347,7 +349,8 @@ Error: failed to create one or more federation relationships
       "federation_relationship": {
         "trust_domain": "td-1.org",
         "bundle_endpoint_url": "https://td-1.org/bundle",
-        "https_web": {}
+        "https_web": {},
+        "trust_domain_bundle": null
       }
     }
   ]
@@ -396,7 +399,8 @@ Endpoint SPIFFE ID        : spiffe://td-3.org/bundle
       "federation_relationship": {
         "trust_domain": "td-1.org",
         "bundle_endpoint_url": "https://td-1.org/bundle",
-        "https_web": {}
+        "https_web": {},
+        "trust_domain_bundle": null
       }
     },
     {
@@ -409,7 +413,8 @@ Endpoint SPIFFE ID        : spiffe://td-3.org/bundle
         "bundle_endpoint_url": "https://td-2.org/bundle",
         "https_spiffe": {
           "endpoint_spiffe_id": "spiffe://other.org/bundle"
-        }
+        },
+        "trust_domain_bundle": null
       }
     },
     {

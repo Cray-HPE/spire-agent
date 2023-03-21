@@ -109,11 +109,12 @@ type Suite struct {
 func (s *Suite) SetupTest() {
 	s.dir = s.TempDir()
 	s.writeFile(defaultTokenPath, "default-token")
+
 	s.clock = clock.NewMock(s.T())
 	s.server = nil
+
 	s.podList = nil
 	s.env = map[string]string{}
-
 	s.oc = createOSConfig()
 }
 
@@ -562,7 +563,6 @@ func (s *Suite) newPlugin() *Plugin {
 	p.getenv = func(key string) string {
 		return s.env[key]
 	}
-
 	return p
 }
 
@@ -604,7 +604,7 @@ func (s *Suite) loadPlugin(configuration string) workloadattestor.WorkloadAttest
 		plugintest.Configure(configuration),
 	)
 
-	if cHelper := s.oc.getContainerHelper(p); cHelper != nil {
+	if cHelper := s.oc.getContainerHelper(); cHelper != nil {
 		p.setContainerHelper(cHelper)
 	}
 	return v1

@@ -12,27 +12,24 @@ import (
 	svidv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/svid/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/spiffe/spire/cmd/spire-server/util"
-	commoncli "github.com/spiffe/spire/pkg/common/cli"
-	"github.com/spiffe/spire/pkg/common/cliprinter"
+	common_cli "github.com/spiffe/spire/pkg/common/cli"
 	"github.com/spiffe/spire/pkg/common/diskutil"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 func NewMintCommand() cli.Command {
-	return newMintCommand(commoncli.DefaultEnv)
+	return newMintCommand(common_cli.DefaultEnv)
 }
 
-func newMintCommand(env *commoncli.Env) cli.Command {
-	return util.AdaptCommand(env, &mintCommand{env: env})
+func newMintCommand(env *common_cli.Env) cli.Command {
+	return util.AdaptCommand(env, new(mintCommand))
 }
 
 type mintCommand struct {
 	spiffeID string
 	ttl      time.Duration
-	audience commoncli.StringsFlag
+	audience common_cli.StringsFlag
 	write    string
-	env      *commoncli.Env
-	printer  cliprinter.Printer
 }
 
 func (c *mintCommand) Name() string {
@@ -47,10 +44,9 @@ func (c *mintCommand) AppendFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&c.ttl, "ttl", 0, "TTL of the JWT-SVID")
 	fs.Var(&c.audience, "audience", "Audience claim that will be included in the SVID. Can be used more than once.")
 	fs.StringVar(&c.write, "write", "", "File to write token to instead of stdout")
-	cliprinter.AppendFlagWithCustomPretty(&c.printer, fs, c.env, prettyPrintMint)
 }
 
-func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient util.ServerClient) error {
+func (c *mintCommand) Run(ctx context.Context, env *common_cli.Env, serverClient util.ServerClient) error {
 	if c.spiffeID == "" {
 		return errors.New("spiffeID must be specified")
 	}
@@ -80,7 +76,7 @@ func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient 
 
 	// Print in stdout
 	if c.write == "" {
-		return c.printer.PrintProto(resp)
+		return env.Println(token)
 	}
 
 	// Save in file
@@ -91,7 +87,7 @@ func (c *mintCommand) Run(ctx context.Context, env *commoncli.Env, serverClient 
 	return env.Printf("JWT-SVID written to %s\n", tokenPath)
 }
 
-func (c *mintCommand) validateToken(token string, env *commoncli.Env) error {
+func (c *mintCommand) validateToken(token string, env *common_cli.Env) error {
 	if token == "" {
 		return errors.New("server response missing token")
 	}
@@ -130,11 +126,4 @@ func getJWTSVIDEndOfLife(token string) (time.Time, error) {
 // the nearest second
 func ttlToSeconds(ttl time.Duration) int32 {
 	return int32((ttl + time.Second - 1) / time.Second)
-}
-
-func prettyPrintMint(env *commoncli.Env, results ...interface{}) error {
-	if resp, ok := results[0].(*svidv1.MintJWTSVIDResponse); ok {
-		return env.Println(resp.Svid.Token)
-	}
-	return cliprinter.ErrInternalCustomPrettyFunc
 }

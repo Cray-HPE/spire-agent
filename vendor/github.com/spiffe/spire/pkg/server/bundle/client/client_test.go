@@ -6,8 +6,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
-	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -99,7 +97,6 @@ func TestClient(t *testing.T) {
 				w.WriteHeader(testCase.status)
 				_, _ = w.Write([]byte(testCase.body))
 			}))
-			server.Config.ErrorLog = log.New(io.Discard, "", 0)
 			server.TLS = &tls.Config{
 				Certificates: []tls.Certificate{
 					{

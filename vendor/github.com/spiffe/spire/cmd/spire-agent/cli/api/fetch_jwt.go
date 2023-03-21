@@ -13,18 +13,17 @@ import (
 )
 
 func NewFetchJWTCommand() cli.Command {
-	return newFetchJWTCommandWithEnv(commoncli.DefaultEnv, newWorkloadClient)
+	return newFetchJWTCommand(commoncli.DefaultEnv, newWorkloadClient)
 }
 
-func newFetchJWTCommandWithEnv(env *commoncli.Env, clientMaker workloadClientMaker) cli.Command {
-	return adaptCommand(env, clientMaker, &fetchJWTCommand{env: env})
+func newFetchJWTCommand(env *commoncli.Env, clientMaker workloadClientMaker) cli.Command {
+	return adaptCommand(env, clientMaker, new(fetchJWTCommand))
 }
 
 type fetchJWTCommand struct {
 	audience commoncli.CommaStringsFlag
 	spiffeID string
 	printer  cliprinter.Printer
-	env      *commoncli.Env
 }
 
 func (c *fetchJWTCommand) name() string {
@@ -55,7 +54,7 @@ func (c *fetchJWTCommand) run(ctx context.Context, env *commoncli.Env, client *w
 func (c *fetchJWTCommand) appendFlags(fs *flag.FlagSet) {
 	fs.Var(&c.audience, "audience", "comma separated list of audience values")
 	fs.StringVar(&c.spiffeID, "spiffeID", "", "SPIFFE ID subject (optional)")
-	outputValue := cliprinter.AppendFlagWithCustomPretty(&c.printer, fs, c.env, printPrettyResult)
+	outputValue := cliprinter.AppendFlagWithCustomPretty(&c.printer, fs, nil, printPrettyResult)
 	fs.Var(outputValue, "format", "deprecated; use -output")
 }
 
@@ -78,25 +77,27 @@ func (c *fetchJWTCommand) fetchJWTBundles(ctx context.Context, client *workloadC
 	return stream.Recv()
 }
 
-func printPrettyResult(env *commoncli.Env, results ...interface{}) error {
+func printPrettyResult(_ *commoncli.Env, results ...interface{}) error {
+	errMsg := "internal error: cli printer; please report this bug"
+
 	svidResp, ok := results[0].(*workload.JWTSVIDResponse)
 	if !ok {
-		env.Println(cliprinter.ErrInternalCustomPrettyFunc.Error())
-		return cliprinter.ErrInternalCustomPrettyFunc
+		fmt.Println(errMsg)
+		return errors.New(errMsg)
 	}
 
 	bundlesResp, ok := results[1].(*workload.JWTBundlesResponse)
 	if !ok {
-		env.Println(cliprinter.ErrInternalCustomPrettyFunc.Error())
-		return cliprinter.ErrInternalCustomPrettyFunc
+		fmt.Println(errMsg)
+		return errors.New(errMsg)
 	}
 
 	for _, svid := range svidResp.Svids {
-		env.Printf("token(%s):\n\t%s\n", svid.SpiffeId, svid.Svid)
+		fmt.Printf("token(%s):\n\t%s\n", svid.SpiffeId, svid.Svid)
 	}
 
 	for trustDomainID, jwksJSON := range bundlesResp.Bundles {
-		env.Printf("bundle(%s):\n\t%s\n", trustDomainID, string(jwksJSON))
+		fmt.Printf("bundle(%s):\n\t%s\n", trustDomainID, string(jwksJSON))
 	}
 
 	return nil
