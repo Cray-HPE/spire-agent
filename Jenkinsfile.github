@@ -57,7 +57,7 @@ pipeline {
                 axes {
                     axis {
                         name 'ARCH'
-                        values 'x86_64'
+                        values 'aarch64', 'x86_64'
                     }
 
                     axis {
