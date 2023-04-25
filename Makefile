@@ -22,8 +22,8 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 
-ifeq ($(ARCH),)
-export ARCH ?= x86_64
+ifeq ($(arch),)
+export arch ?= x86_64
 endif
 
 ifeq ($(NAME),)
