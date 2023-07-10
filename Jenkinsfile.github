@@ -25,9 +25,16 @@
  */
 @Library('csm-shared-library') _
 
+// Disable pr-merge builds; not used.
+if (env.BRANCH_NAME ==~ ~"^PR-\\d+") {
+    currentBuild.result = 'SUCCESS'
+    echo "Pull-Requests are not built; this is a no-op build."
+    return
+}
+
 def isStable = env.TAG_NAME != null ? true : false
 def sleImage = 'artifactory.algol60.net/csm-docker/stable/csm-docker-sle'
-def sleVersion = '15.4'
+def sleVersion = 'latest'
 
 pipeline {
 
@@ -46,58 +53,50 @@ pipeline {
         NAME = getRepoName()
         SPIRE_VERSION = sh(returnStdout: true, script: "git vendor list spire | grep ref | awk '{print \$NF}'").trim()
         BUILD = sh(returnStdout: true, script: "git describe --tags | tr -s '-' '~' | sed 's/^v//'").trim()
+        PRIMARY_NODE = "${env.NODE_NAME}"
     }
 
     stages {
-
         stage('Build & Publish') {
-
             matrix {
-
                 axes {
                     axis {
                         name 'ARCH'
                         values 'aarch64', 'x86_64'
                     }
-
-                    axis {
-                        name 'sleVersion'
-                        values '15.4'
-                    }
-
                 }
-                agent {
-                    node {
-                        label "metal-gcp-builder"
-                        customWorkspace "${env.WORKSPACE}/${ARCH}/${SLEVERSION}"
-                    }
+
+                environment {
+                    DOCKER_ARCH = "${env.ARCH == "x86_64" ? "amd64" : "arm64"}"
+                    BUILD_DIR = "${env.WORKSPACE}/dist/rpmbuild/${ARCH}"
                 }
 
                 stages {
-                    stage('Prepare: RPMs') {
-                        agent {
-                            docker {
-                                label 'docker'
-                                reuseNode true
-                                image "${sleImage}:${sleVersion}"
-                            }
-                        }
+                    stage('Build: setup') {
                         steps {
-                            runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
-                            sh "git update-index --assume-unchanged ${env.NAME}.spec"
-                            sh "make prepare"
+                            lock('docker-image-pull') {
+                                sh "docker pull --platform linux/${DOCKER_ARCH} ${sleImage}:${sleVersion}"
+                                sh "docker tag ${sleImage}:${sleVersion} ${sleImage}:${DOCKER_ARCH}"
+                            }
                         }
                     }
 
                     stage('Build: RPMs') {
                         agent {
                             docker {
-                                label 'docker'
+                                label "${PRIMARY_NODE}"
                                 reuseNode true
-                                image "${sleImage}:${sleVersion}"
+                                args "-v /home/jenkins/.ssh:/home/jenkins/.ssh --platform linux/${env.DOCKER_ARCH}"
+                                image "${sleImage}:${env.DOCKER_ARCH}"
                             }
                         }
+
                         steps {
+                            sh "make prepare"
+                            dir("${env.BUILD_DIR}/SPECS/") {
+                                runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
+                            }
+                            sh "git update-index --assume-unchanged ${env.NAME}.spec"
                             sh "make rpm"
                         }
                     }
@@ -105,22 +104,19 @@ pipeline {
                     stage('Publish: RPMs') {
                         steps {
                             script {
-                                def sles_version_parts = "${sleVersion}".tokenize('.')
-                                def sles_major = "${sles_version_parts[0]}"
-                                def sles_minor = "${sles_version_parts[1]}"
                                 publishCsmRpms(
                                         arch: "${ARCH}",
                                         component: env.NAME,
                                         isStable: isStable,
-                                        os: "sle-${sles_major}sp${sles_minor}",
-                                        pattern: "dist/rpmbuild/RPMS/${arch}/*.rpm",
+                                        os: "noos",
+                                        pattern: "dist/rpmbuild/${ARCH}/RPMS/${ARCH}/*.rpm",
                                 )
                                 publishCsmRpms(
                                         arch: "src",
                                         component: env.NAME,
                                         isStable: isStable,
-                                        os: "sle-${sles_major}sp${sles_minor}",
-                                        pattern: "dist/rpmbuild/SRPMS/*.rpm",
+                                        os: "noos",
+                                        pattern: "dist/rpmbuild/${ARCH}/SRPMS/*.rpm",
                                 )
                             }
                         }
