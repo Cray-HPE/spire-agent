@@ -81,7 +81,7 @@ pipeline {
                         }
                     }
 
-                    stage('Build: RPMs') {
+                    stage('Prepare: RPMs') {
                         agent {
                             docker {
                                 label "${PRIMARY_NODE}"
@@ -96,7 +96,20 @@ pipeline {
                             dir("${env.BUILD_DIR}/SPECS/") {
                                 runLibraryScript("addRpmMetaData.sh", "${env.NAME}.spec")
                             }
-                            sh "git update-index --assume-unchanged ${env.NAME}.spec"
+                        }
+                    }
+
+                    stage('Build: RPMs') {
+                        agent {
+                            docker {
+                                label "${PRIMARY_NODE}"
+                                reuseNode true
+                                args "-v /home/jenkins/.ssh:/home/jenkins/.ssh --platform linux/${env.DOCKER_ARCH}"
+                                image "${sleImage}:${env.DOCKER_ARCH}"
+                            }
+                        }
+
+                        steps {
                             sh "make rpm"
                         }
                     }
