@@ -57,7 +57,7 @@ BUILD_DIR ?= $(PWD)/dist/rpmbuild
 SOURCE_PATH := ${BUILD_DIR}/SOURCES/${SOURCE_NAME}-$(shell echo $(SPIRE_VERSION) | sed 's/^v//').tar.bz2
 
 .PHONY: rpm
-rpm: print prepare rpm_package_source rpm_build_source rpm_build
+rpm: print rpm_package_source rpm_build_source rpm_build
 
 .PHONY: print
 print:
