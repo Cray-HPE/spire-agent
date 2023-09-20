@@ -49,7 +49,7 @@ Requires(postun): /usr/sbin/userdel
 %define spire_binary bin/spire-agent
 
 %define spire_agent_dir /var/lib/spire
-%define spire_bin_dir /usr/bin/
+%define spire_bin_dir /opt/cray/cray-spire
 
 %description
 SPIFFE SPIRE Agent binary distribution.
@@ -63,8 +63,8 @@ make build
 
 %install
 mkdir -p %{buildroot}%{spire_agent_dir}/{data,conf,bundle}
-install -D -m 0755 %{vendor_dir}/bin/spire-agent %{buildroot}%{_bindir}/spire-agent
-install -D -m 0755 conf/configure-spire.sh %{buildroot}%{_bindir}/configure-spire.sh
+install -D -m 0700 %{vendor_dir}/bin/spire-agent %{buildroot}%{spire_bin_dir}/spire-agent
+install -D -m 0700 conf/configure-spire.sh %{buildroot}%{spire_bin_dir}/configure-spire.sh
 install -D -m 0644 conf/spire-agent.service %{buildroot}%{_unitdir}/spire-agent.service
 
 %clean
@@ -73,8 +73,8 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %doc README.adoc
-%attr(755,root,root) %{spire_bin_dir}/spire-agent
-%attr(755,root,root) %{spire_bin_dir}/configure-spire.sh
+%attr(700,root,root) %{spire_bin_dir}/spire-agent
+%attr(700,root,root) %{spire_bin_dir}/configure-spire.sh
 %attr(644,root,root) %{_unitdir}/spire-agent.service
 %attr(700,spire,spire) %dir %{spire_agent_dir}/data
 %attr(700,spire,spire) %dir %{spire_agent_dir}/conf
