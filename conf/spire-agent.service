@@ -34,8 +34,8 @@ WantedBy=multi-user.target
 [Service]
 Type=simple
 EnvironmentFile=-/var/lib/spire/conf/join_token
-ExecStartPre=/usr/bin/configure-spire.sh
-ExecStart=/usr/bin/spire-agent run -expandEnv -config /var/lib/spire/conf/spire-agent.conf
+ExecStartPre=/opt/cray/cray-spire/configure-spire.sh
+ExecStart=/opt/cray/cray-spire/spire-agent run -expandEnv -config /var/lib/spire/conf/spire-agent.conf
 StandardOutput=journal
 ExecStartPost=+bash -c 'mkdir -p /root/spire && ln -sf /var/lib/spire/agent.sock /root/spire/agent.sock'
 Restart=always
