@@ -97,7 +97,7 @@ rm -f /tmp/spire_bundle
 cat << EOF > "${spire_rootdir}/conf/spire-agent.conf"
 agent {
   data_dir = "${spire_rootdir}"
-  log_level = "INFO"
+  log_level = "WARN"
   server_address = "${spire_server}"
   server_port = "8081"
   socket_path = "${spire_rootdir}/agent.sock"
