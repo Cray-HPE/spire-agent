@@ -29,7 +29,7 @@ spire_rootdir="/var/lib/spire"
 # Get boot parameters
 BOOT_PARAMS=$(</proc/cmdline)
 
-if [[ -f "${spire_rootdir}/conf/join_token" ]] && [[ -f "${spire_rootdir}/conf/spire-agent.conf" ]]; then
+if [[ -f "${spire_rootdir}/conf/join_token" || -f "${spire_rootdir}/conf/tpm.enabled"  ]] && [[ -f "${spire_rootdir}/conf/spire-agent.conf" ]]; then
     echo "Not recreating spire-agent.conf."
     exit 0
 fi
@@ -55,6 +55,19 @@ for word in ${BOOT_PARAMS}; do
         else
             printf "join_token=%s" "${join_token}" > "${spire_rootdir}/conf/join_token"
             chmod 600 "${spire_rootdir}/conf/join_token"
+        fi
+    fi
+
+    if [[ ${parent_key} == 'tpm' ]]; then
+        tpm_setting="${parent_val}"
+
+        if [[ ${tpm_setting} == 'enable' ]]; then
+            echo "Not recreating spire-agent.conf"
+            exit 0
+        elif [[ ${tpm_setting} == 'enroll' ]]; then
+            echo "TPM set to enroll"
+        else
+            echo >&2 "Unknown TPM setting ${tpm_setting}"
         fi
     fi
 done
